@@ -7,13 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Upload, FileText, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+
+type ReportType = Database["public"]["Enums"]["report_type"];
 
 export default function UploadReport() {
   const [patientName, setPatientName] = useState("");
   const [patientId, setPatientId] = useState("");
-  const [reportType, setReportType] = useState("radiology");
+  const [reportType, setReportType] = useState<ReportType>("radiology");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
@@ -129,7 +132,7 @@ export default function UploadReport() {
 
             <div className="space-y-2">
               <Label htmlFor="report-type">Report Type *</Label>
-              <Select value={reportType} onValueChange={setReportType}>
+              <Select value={reportType} onValueChange={(value) => setReportType(value as ReportType)}>
                 <SelectTrigger id="report-type">
                   <SelectValue />
                 </SelectTrigger>

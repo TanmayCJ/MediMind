@@ -7,13 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+
+type UserRole = Database["public"]["Enums"]["user_role"];
 
 export default function Settings() {
   const { user } = useAuth();
   const [fullName, setFullName] = useState("");
   const [department, setDepartment] = useState("");
-  const [role, setRole] = useState("doctor");
+  const [role, setRole] = useState<UserRole>("doctor");
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
 
@@ -116,7 +119,7 @@ export default function Settings() {
 
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select value={role} onValueChange={setRole}>
+              <Select value={role} onValueChange={(value) => setRole(value as UserRole)}>
                 <SelectTrigger id="role">
                   <SelectValue />
                 </SelectTrigger>
