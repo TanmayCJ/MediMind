@@ -82,6 +82,38 @@ export default function SummaryViewer() {
     setRegenerating(false);
   };
 
+  const handleViewOriginal = async () => {
+    if (!report) return;
+    
+    try {
+      // Extract the file path from the public URL
+      // URL format: https://[project].supabase.co/storage/v1/object/public/medical-reports/[path]
+      const urlParts = report.file_url.split('/medical-reports/');
+      if (urlParts.length < 2) {
+        throw new Error("Invalid file URL");
+      }
+      const filePath = urlParts[1];
+      
+      // Download the file using Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('medical-reports')
+        .download(filePath);
+      
+      if (error) throw error;
+      
+      // Create a blob URL and open it in a new tab
+      const blob = new Blob([data]);
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      
+      // Clean up the blob URL after a short delay
+      setTimeout(() => window.URL.revokeObjectURL(url), 100);
+    } catch (error: any) {
+      console.error('Error viewing file:', error);
+      toast.error("Failed to view original file");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -170,10 +202,8 @@ export default function SummaryViewer() {
               >
                 <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                 <p className="text-center font-medium mb-2">{report.file_name}</p>
-                <Button variant="outline" className="w-full" asChild>
-                  <a href={report.file_url} target="_blank" rel="noopener noreferrer">
-                    View Original File
-                  </a>
+                <Button variant="outline" className="w-full" onClick={handleViewOriginal}>
+                  View Original File
                 </Button>
               </motion.div>
             </CardContent>
@@ -212,7 +242,7 @@ export default function SummaryViewer() {
                   )}
                 </AnimatePresence>
               </div>
-              <CardDescription>Chain-of-Thought reasoning summary</CardDescription>
+              <CardDescription>AI-powered medical analysis</CardDescription>
             </CardHeader>
             <CardContent>
               {!summary ? (
@@ -237,9 +267,8 @@ export default function SummaryViewer() {
                 </motion.div>
               ) : (
                 <Tabs defaultValue="findings" className="w-full">
-                  <TabsList className="grid w-full grid-cols-3">
+                  <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="findings">Key Findings</TabsTrigger>
-                    <TabsTrigger value="reasoning">Reasoning</TabsTrigger>
                     <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
                   </TabsList>
 
@@ -257,39 +286,6 @@ export default function SummaryViewer() {
                           <p className="text-sm">{finding}</p>
                         </motion.div>
                       ))}
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="reasoning" className="space-y-4 mt-4">
-                    <div className="prose prose-sm max-w-none">
-                      {summary.reasoning_steps && typeof summary.reasoning_steps === 'object' ? (
-                        <div className="space-y-4">
-                          {Object.entries(summary.reasoning_steps).map(([key, value], i) => (
-                            <motion.div
-                              key={i}
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              transition={{ delay: i * 0.15 }}
-                              className="p-4 border rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 hover:shadow-md transition-all"
-                            >
-                              <h4 className="font-semibold mb-2 flex items-center gap-2">
-                                <motion.span 
-                                  className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs"
-                                  initial={{ scale: 0 }}
-                                  animate={{ scale: 1 }}
-                                  transition={{ delay: i * 0.15 + 0.1, type: "spring" }}
-                                >
-                                  {i + 1}
-                                </motion.span>
-                                {key}
-                              </h4>
-                              <p className="text-sm text-muted-foreground">{String(value)}</p>
-                            </motion.div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-sm">{summary.full_summary}</p>
-                      )}
                     </div>
                   </TabsContent>
 

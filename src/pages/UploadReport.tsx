@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth";
 import { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { EDGE_FUNCTIONS } from "@/config/functions";
 
 type ReportType = Database["public"]["Enums"]["report_type"];
 
@@ -53,21 +54,36 @@ export default function UploadReport() {
     e.preventDefault();
     if (!file || !user) return;
 
+    console.log('🚀 Starting upload process...');
+    console.log('📄 File:', file.name, 'Size:', file.size, 'Type:', file.type);
+    console.log('👤 Patient:', patientName, 'Report Type:', reportType);
+
     setUploading(true);
     
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       
+      console.log('📤 Uploading file to storage:', fileName);
+      
       const { error: uploadError } = await supabase.storage
         .from('medical-reports')
         .upload(fileName, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('❌ Storage upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('✅ File uploaded to storage successfully');
 
       const { data: { publicUrl } } = supabase.storage
         .from('medical-reports')
         .getPublicUrl(fileName);
+
+      console.log('🔗 Public URL:', publicUrl);
+
+      console.log('💾 Creating report record in database...');
 
       const { data: report, error: reportError } = await supabase
         .from('reports')
@@ -84,26 +100,40 @@ export default function UploadReport() {
         .select()
         .single();
 
-      if (reportError) throw reportError;
+      if (reportError) {
+        console.error('❌ Database insert error:', reportError);
+        throw reportError;
+      }
+
+      console.log('✅ Report record created with ID:', report.id);
 
       toast.success("Report uploaded successfully!");
       
-      const { error: functionError } = await supabase.functions.invoke('generate-summary', {
+      // Skip process-document for now (not needed without OpenAI API key)
+      // Directly generate AI summary
+      console.log('🤖 Calling generate-summary-new edge function...');
+      toast.info("Generating AI summary...");
+      
+      const { data: summaryData, error: summaryError } = await supabase.functions.invoke(EDGE_FUNCTIONS.GENERATE_SUMMARY, {
         body: { reportId: report.id }
       });
 
-      if (functionError) {
-        console.error('Error generating summary:', functionError);
+      if (summaryError) {
+        console.error('❌ generate-summary error:', summaryError);
+        console.error('Error details:', JSON.stringify(summaryError, null, 2));
         toast.error("Report uploaded but summary generation failed. Please try again.");
       } else {
-        toast.success("AI summary is being generated...");
+        console.log('✅ Summary generated successfully:', summaryData);
+        toast.success("AI summary generated successfully!");
         navigate(`/summary/${report.id}`);
       }
     } catch (error: any) {
-      console.error('Upload error:', error);
+      console.error('❌ Upload failed:', error);
+      console.error('Error stack:', error.stack);
       toast.error(error.message || "Failed to upload report");
     } finally {
       setUploading(false);
+      console.log('🏁 Upload process completed');
     }
   };
 
