@@ -267,9 +267,11 @@ export default function SummaryViewer() {
                 </motion.div>
               ) : (
                 <Tabs defaultValue="findings" className="w-full">
-                  <TabsList className="grid w-full grid-cols-2">
+                  <TabsList className="grid w-full grid-cols-4">
                     <TabsTrigger value="findings">Key Findings</TabsTrigger>
+                    <TabsTrigger value="reasoning">Reasoning</TabsTrigger>
                     <TabsTrigger value="recommendations">Recommendations</TabsTrigger>
+                    <TabsTrigger value="full">Full Summary</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="findings" className="space-y-4 mt-4">
@@ -284,6 +286,30 @@ export default function SummaryViewer() {
                         >
                           <Lightbulb className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
                           <p className="text-sm">{finding}</p>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="reasoning" className="space-y-4 mt-4">
+                    <div className="space-y-3">
+                      {summary.reasoning_steps && Object.entries(summary.reasoning_steps).map(([step, reasoning], i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.1 }}
+                          className="p-4 border rounded-lg bg-gradient-to-r from-primary/5 to-transparent hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm">
+                              {i + 1}
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-sm mb-1">{step}</h4>
+                              <p className="text-sm text-muted-foreground">{String(reasoning)}</p>
+                            </div>
+                          </div>
                         </motion.div>
                       ))}
                     </div>
@@ -304,6 +330,20 @@ export default function SummaryViewer() {
                         </motion.div>
                       ))}
                     </div>
+                  </TabsContent>
+
+                  <TabsContent value="full" className="space-y-4 mt-4">
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="p-4 border rounded-lg bg-gradient-to-br from-primary/5 to-accent/5"
+                    >
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                          {summary.full_summary || "No full summary available"}
+                        </p>
+                      </div>
+                    </motion.div>
                   </TabsContent>
                 </Tabs>
               )}

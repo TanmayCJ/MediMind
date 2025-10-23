@@ -109,8 +109,29 @@ export default function UploadReport() {
 
       toast.success("Report uploaded successfully!");
       
-      // Skip process-document for now (not needed without OpenAI API key)
-      // Directly generate AI summary
+      // Call process-document to chunk and create embeddings for RAG
+      console.log('📊 Calling process-document edge function for RAG...');
+      toast.info("Processing document for enhanced analysis...");
+      
+      try {
+        const { data: processData, error: processError } = await supabase.functions.invoke('process-document', {
+          body: { reportId: report.id }
+        });
+
+        if (processError) {
+          console.warn('⚠️ process-document warning:', processError);
+          console.log('ℹ️ Continuing without RAG enhancement');
+        } else {
+          console.log('✅ Document processed:', processData);
+          if (processData?.rag_enabled) {
+            toast.success("Document chunked for enhanced RAG retrieval!");
+          }
+        }
+      } catch (procError) {
+        console.warn('⚠️ process-document failed, continuing:', procError);
+      }
+      
+      // Generate AI summary
       console.log('🤖 Calling generate-summary-new edge function...');
       toast.info("Generating AI summary...");
       

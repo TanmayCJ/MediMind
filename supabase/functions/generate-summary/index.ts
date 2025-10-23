@@ -6,38 +6,75 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Function to generate embeddings using OpenAI API
-async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'text-embedding-ada-002',
-      input: text,
-    }),
-  });
+// Function to generate embeddings using Gemini API (FREE!)
+async function generateGeminiEmbedding(text: string, apiKey: string): Promise<number[]> {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: "models/text-embedding-004",
+        content: {
+          parts: [{
+            text: text
+          }]
+        }
+      }),
+    }
+  );
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} - ${error}`);
+    throw new Error(`Gemini API error: ${response.status} - ${error}`);
   }
 
   const data = await response.json();
-  return data.data[0].embedding;
+  return data.embedding.values; // Returns array of 768 dimensions
 }
 
-// Function to retrieve relevant context using RAG
+// Function to get medical insights from HuggingFace BiomedNLP model
+async function getMedicalInsights(text: string, apiKey: string): Promise<any> {
+  try {
+    // Using microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract (free inference)
+    const response = await fetch(
+      "https://api-inference.huggingface.co/models/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inputs: text.slice(0, 512), // Truncate to model max length
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      console.log('⚠️ HuggingFace API returned:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('⚠️ HuggingFace request failed:', error);
+    return null;
+  }
+}
+
+// Function to retrieve relevant context using RAG with Gemini embeddings
 async function retrieveContext(
   reportId: string, 
   query: string, 
   supabaseClient: any,
-  openaiApiKey: string
+  geminiApiKey: string
 ): Promise<string> {
-  // Generate embedding for the query
-  const queryEmbedding = await generateEmbedding(query, openaiApiKey);
+  // Generate embedding for the query using Gemini
+  const queryEmbedding = await generateGeminiEmbedding(query, geminiApiKey);
 
   // Search for similar chunks
   const { data: chunks, error } = await supabaseClient.rpc('search_similar_chunks', {
@@ -136,7 +173,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const HUGGINGFACE_API_KEY = Deno.env.get('HUGGINGFACE_API_KEY');
     
     // Fetch report details
     const { data: report, error: reportError } = await supabaseClient
@@ -178,29 +216,50 @@ serve(async (req) => {
       console.error('⚠️ Error reading file content:', error);
     }
 
-    // Try to retrieve context using RAG if OpenAI key is available
+    // Try to retrieve context using RAG if Gemini key is available
     let retrievedContext = '';
-    if (OPENAI_API_KEY) {
+    if (GEMINI_API_KEY) {
       try {
-        console.log('🚀 RAG ENABLED: Using vector embeddings for context retrieval');
+        console.log('🚀 RAG ENABLED: Using Gemini vector embeddings for context retrieval');
         const query = `Analyze ${report.report_type} report findings, key observations, and clinical significance`;
-        retrievedContext = await retrieveContext(reportId, query, supabaseClient, OPENAI_API_KEY);
+        retrievedContext = await retrieveContext(reportId, query, supabaseClient, GEMINI_API_KEY);
         console.log('✅ Retrieved context length:', retrievedContext.length);
       } catch (error) {
         console.error('⚠️ RAG failed, continuing without context:', error);
       }
     } else {
-      console.log('ℹ️ RAG DISABLED: No OpenAI API key - using direct Gemini analysis (still powerful!)');
+      console.log('ℹ️ RAG DISABLED: No Gemini API key for embeddings - using direct analysis');
+    }
+
+    // Get medical insights from HuggingFace model if API key is available
+    let medicalInsights: any = null;
+    if (HUGGINGFACE_API_KEY && reportContent) {
+      try {
+        console.log('🤖 Calling HuggingFace BiomedNLP model for medical insights...');
+        medicalInsights = await getMedicalInsights(reportContent, HUGGINGFACE_API_KEY);
+        if (medicalInsights) {
+          console.log('✅ Medical insights obtained from HuggingFace model');
+        }
+      } catch (error) {
+        console.error('⚠️ HuggingFace analysis failed:', error);
+      }
+    } else if (!HUGGINGFACE_API_KEY) {
+      console.log('ℹ️ HuggingFace DISABLED: No API key - using only Gemini (still excellent!)');
     }
 
     // Prepare AI prompt with Chain-of-Thought instructions
     const systemPrompt = `You are an expert medical AI assistant specialized in analyzing diagnostic reports. 
 Your task is to provide a comprehensive analysis with clear Chain-of-Thought reasoning.
 
+You have access to:
+1. The original medical report
+2. Retrieved contextual information from similar past cases (RAG)
+3. Medical domain insights from a specialized BiomedNLP model trained on PubMed literature
+
 Analyze the medical report and provide:
 1. Key Findings: Extract and list the most important diagnostic findings
-2. Step-by-Step Reasoning: Show your analytical process step by step
-3. Recommendations: Provide actionable clinical recommendations
+2. Step-by-Step Reasoning: Show your analytical process step by step, incorporating insights from all sources
+3. Recommendations: Provide actionable clinical recommendations based on current medical knowledge
 
 Be thorough, precise, and maintain medical accuracy.`;
 
@@ -219,14 +278,18 @@ File: ${report.file_name}`;
       console.log('✅ Enhanced with RAG-retrieved context');
     }
 
+    // Add HuggingFace medical model insights if available
+    if (medicalInsights) {
+      userPrompt += `\n\n=== MEDICAL DOMAIN INSIGHTS (BiomedNLP Model) ===\n${JSON.stringify(medicalInsights, null, 2)}\n\n=== END MEDICAL INSIGHTS ===\n`;
+      console.log('✅ Enhanced with HuggingFace medical model insights');
+    }
+
     userPrompt += `\n\nProvide a comprehensive analysis with:
 - Key clinical findings (3-5 bullet points)
-- Step-by-step reasoning process (explain your analytical steps)
-- Clinical recommendations (3-5 actionable items)`;
+- Step-by-step reasoning process (explain your analytical steps, citing which information source supports each conclusion)
+- Clinical recommendations (3-5 actionable items with clinical rationale)`;
 
-    // Call Google Gemini API directly
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    
+    // Call Google Gemini API directly (API key already fetched earlier)
     if (!GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY not configured. Please add it to Supabase secrets.');
     }

@@ -39,27 +39,33 @@ function chunkText(text: string, chunkSize: number = 1000, overlap: number = 200
   return chunks;
 }
 
-// Function to generate embeddings using OpenAI API
-async function generateEmbedding(text: string, apiKey: string): Promise<number[]> {
-  const response = await fetch('https://api.openai.com/v1/embeddings', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'text-embedding-ada-002',
-      input: text,
-    }),
-  });
+// Function to generate embeddings using Gemini API (FREE!)
+async function generateGeminiEmbedding(text: string, apiKey: string): Promise<number[]> {
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: "models/text-embedding-004",
+        content: {
+          parts: [{
+            text: text
+          }]
+        }
+      }),
+    }
+  );
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} - ${error}`);
+    throw new Error(`Gemini API error: ${response.status} - ${error}`);
   }
 
   const data = await response.json();
-  return data.data[0].embedding;
+  return data.embedding.values; // Returns array of 768 dimensions
 }
 
 // Function to extract text from file (basic implementation)
@@ -104,26 +110,26 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
     
-    if (!OPENAI_API_KEY) {
-      console.log('ℹ️ EMBEDDINGS DISABLED: No OpenAI API key found');
+    if (!GEMINI_API_KEY) {
+      console.log('ℹ️ EMBEDDINGS DISABLED: No Gemini API key found');
       console.log('📝 Report received - proceeding to direct AI analysis');
-      console.log('💡 Add OPENAI_API_KEY secret to enable RAG with embeddings');
+      console.log('💡 Add GEMINI_API_KEY secret to enable RAG with embeddings');
       
       return new Response(
         JSON.stringify({ 
           success: true, 
           chunks_processed: 0,
           rag_enabled: false,
-          message: 'Document received - RAG disabled (add OPENAI_API_KEY to enable)'
+          message: 'Document received - RAG disabled (add GEMINI_API_KEY to enable embeddings)'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // OpenAI key is available - proceed with full RAG pipeline
-    console.log('🚀 RAG ENABLED: Processing document with embeddings');
+    // Gemini key is available - proceed with full RAG pipeline
+    console.log('🚀 RAG ENABLED: Processing document with Gemini embeddings');
 
     // Fetch report details
     const { data: report, error: reportError } = await supabaseClient
@@ -167,8 +173,8 @@ Key observations and measurements would be documented here, along with any abnor
     for (const chunk of chunks) {
       console.log(`Processing chunk ${chunk.index}...`);
       
-      // Generate embedding
-      const embedding = await generateEmbedding(chunk.content, OPENAI_API_KEY);
+      // Generate embedding using Gemini API
+      const embedding = await generateGeminiEmbedding(chunk.content, GEMINI_API_KEY);
       
       // Store chunk with embedding
       const { error: insertError } = await supabaseClient
@@ -187,7 +193,7 @@ Key observations and measurements would be documented here, along with any abnor
       }
     }
 
-    console.log('✅ All chunks processed and stored successfully with embeddings');
+    console.log('✅ All chunks processed and stored successfully with Gemini embeddings');
 
     return new Response(
       JSON.stringify({ 

@@ -65,7 +65,7 @@ CREATE TABLE public.report_chunks (
   report_id UUID NOT NULL REFERENCES public.reports(id) ON DELETE CASCADE,
   chunk_index INTEGER NOT NULL,
   content TEXT NOT NULL,
-  embedding vector(1536), -- OpenAI ada-002 embeddings are 1536 dimensions
+  embedding vector(768), -- Gemini text-embedding-004 produces 768 dimensions
   metadata JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(report_id, chunk_index)
@@ -205,8 +205,9 @@ END;
 $$;
 
 -- Function to search similar chunks using vector similarity (RAG)
+-- Updated for Gemini embeddings (768 dimensions instead of OpenAI's 1536)
 CREATE OR REPLACE FUNCTION public.search_similar_chunks(
-  query_embedding vector(1536),
+  query_embedding vector(768),  -- Changed from 1536 to 768 for Gemini
   match_threshold float DEFAULT 0.7,
   match_count int DEFAULT 5,
   filter_report_id uuid DEFAULT NULL
