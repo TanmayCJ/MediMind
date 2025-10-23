@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Download, RefreshCw, FileText, Lightbulb, List, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import jsPDF from 'jspdf';
 
 interface Report {
   id: string;
@@ -114,6 +115,192 @@ export default function SummaryViewer() {
     }
   };
 
+  const handleDownloadPDF = () => {
+    if (!report || !summary) {
+      toast.error("No summary available to download");
+      return;
+    }
+
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const maxWidth = pageWidth - (margin * 2);
+      let yPosition = 20;
+
+      // Helper function to add text with automatic page breaks
+      const addText = (text: string, fontSize: number = 11, isBold: boolean = false, color: [number, number, number] = [0, 0, 0]) => {
+        doc.setFontSize(fontSize);
+        doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+        doc.setTextColor(color[0], color[1], color[2]);
+        
+        const lines = doc.splitTextToSize(text, maxWidth);
+        
+        lines.forEach((line: string) => {
+          if (yPosition > pageHeight - 20) {
+            doc.addPage();
+            yPosition = 20;
+          }
+          doc.text(line, margin, yPosition);
+          yPosition += fontSize * 0.5;
+        });
+        
+        yPosition += 5;
+      };
+
+      const addSpacer = (space: number = 10) => {
+        yPosition += space;
+        if (yPosition > pageHeight - 20) {
+          doc.addPage();
+          yPosition = 20;
+        }
+      };
+
+      const addSection = (title: string) => {
+        addSpacer(8);
+        if (yPosition > pageHeight - 30) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        
+        // Section background
+        doc.setFillColor(0, 153, 198);
+        doc.rect(margin - 5, yPosition - 5, maxWidth + 10, 12, 'F');
+        
+        // Section title
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text(title, margin, yPosition + 3);
+        yPosition += 15;
+        
+        doc.setTextColor(0, 0, 0);
+      };
+
+      // ==================== HEADER ====================
+      // Title
+      doc.setFillColor(0, 153, 198);
+      doc.rect(0, 0, pageWidth, 35, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(22);
+      doc.setFont('helvetica', 'bold');
+      doc.text('MEDICAL REPORT ANALYSIS', pageWidth / 2, 15, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text('AI-Powered Medical Intelligence Platform', pageWidth / 2, 25, { align: 'center' });
+      
+      yPosition = 45;
+      
+      // ==================== PATIENT INFO ====================
+      doc.setTextColor(0, 0, 0);
+      doc.setFillColor(240, 240, 240);
+      doc.rect(margin - 5, yPosition - 5, maxWidth + 10, 30, 'F');
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Patient Information', margin, yPosition + 3);
+      yPosition += 10;
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Patient Name: ${report.patient_name}`, margin, yPosition);
+      yPosition += 6;
+      doc.text(`Report Type: ${report.report_type.toUpperCase()}`, margin, yPosition);
+      yPosition += 6;
+      doc.text(`Date: ${new Date(report.uploaded_at).toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })}`, margin, yPosition);
+      yPosition += 6;
+      doc.text(`Report File: ${report.file_name}`, margin, yPosition);
+      
+      addSpacer(10);
+
+      // ==================== KEY FINDINGS ====================
+      addSection('🔍 KEY FINDINGS');
+      
+      if (summary.key_findings && summary.key_findings.length > 0) {
+        summary.key_findings.forEach((finding, index) => {
+          const bulletText = `${index + 1}. ${finding}`;
+          addText(bulletText, 11, false);
+          addSpacer(3);
+        });
+      } else {
+        addText('No key findings available.', 11, false, [100, 100, 100]);
+      }
+
+      // ==================== CHAIN-OF-THOUGHT REASONING ====================
+      addSection('🧠 CHAIN-OF-THOUGHT REASONING');
+      
+      if (summary.reasoning_steps && typeof summary.reasoning_steps === 'object') {
+        const steps = Object.entries(summary.reasoning_steps);
+        if (steps.length > 0) {
+          steps.forEach(([step, reasoning], index) => {
+            addText(`${step}:`, 11, true, [0, 102, 204]);
+            addText(String(reasoning), 10, false);
+            addSpacer(5);
+          });
+        } else {
+          addText('No reasoning steps available.', 11, false, [100, 100, 100]);
+        }
+      } else {
+        addText('No reasoning steps available.', 11, false, [100, 100, 100]);
+      }
+
+      // ==================== RECOMMENDATIONS ====================
+      addSection('💡 CLINICAL RECOMMENDATIONS');
+      
+      if (summary.recommendations && summary.recommendations.length > 0) {
+        summary.recommendations.forEach((rec, index) => {
+          const bulletText = `${index + 1}. ${rec}`;
+          addText(bulletText, 11, false);
+          addSpacer(3);
+        });
+      } else {
+        addText('No recommendations available.', 11, false, [100, 100, 100]);
+      }
+
+      // ==================== FULL SUMMARY ====================
+      addSection('📋 COMPLETE ANALYSIS SUMMARY');
+      
+      if (summary.full_summary) {
+        addText(summary.full_summary, 10, false);
+      } else {
+        addText('No full summary available.', 11, false, [100, 100, 100]);
+      }
+
+      // ==================== FOOTER ====================
+      const pageCount = doc.getNumberOfPages();
+      doc.setFontSize(8);
+      doc.setTextColor(128, 128, 128);
+      
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.text(
+          `Generated by MediMind AI | Page ${i} of ${pageCount} | ${new Date().toLocaleString()}`,
+          pageWidth / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+      }
+
+      // ==================== SAVE PDF ====================
+      const fileName = `${report.patient_name.replace(/\s+/g, '_')}_${report.report_type}_Analysis_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      
+      toast.success("PDF downloaded successfully!");
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      toast.error("Failed to generate PDF");
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -174,7 +361,7 @@ export default function SummaryViewer() {
             </Button>
           </motion.div>
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleDownloadPDF}>
               <Download className="h-4 w-4 mr-2" />
               Download PDF
             </Button>
