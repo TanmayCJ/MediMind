@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -74,83 +75,106 @@ export default function History() {
   };
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Report History</h1>
-        <p className="text-muted-foreground">
+    <div className="container mx-auto p-6 max-w-7xl">
+      <motion.div 
+        className="mb-8"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          Report History
+        </h1>
+        <p className="text-muted-foreground mt-2">
           View and search through all your uploaded diagnostic reports
         </p>
-      </div>
+      </motion.div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>All Reports</CardTitle>
-          <CardDescription>
-            Search by patient name, ID, or report type
-          </CardDescription>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search reports..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Loading reports...
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
+      >
+        <Card className="backdrop-blur-sm bg-card/50 shadow-xl">
+          <CardHeader>
+            <CardTitle>All Reports</CardTitle>
+            <CardDescription>
+              Search by patient name, ID, or report type
+            </CardDescription>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search reports..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 transition-all focus:scale-[1.01]"
+              />
             </div>
-          ) : filteredReports.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              {searchQuery ? "No reports found matching your search" : "No reports uploaded yet"}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredReports.map((report) => (
-                <div
-                  key={report.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex-1 grid grid-cols-4 gap-4">
-                    <div>
-                      <p className="font-medium">{report.patient_name}</p>
-                      {report.patient_id && (
-                        <p className="text-sm text-muted-foreground">ID: {report.patient_id}</p>
-                      )}
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="rounded-full h-8 w-8 border-b-2 border-primary"
+                />
+              </div>
+            ) : filteredReports.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                {searchQuery ? "No reports found matching your search" : "No reports uploaded yet"}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredReports.map((report, index) => (
+                  <motion.div
+                    key={report.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    whileHover={{ x: 4, scale: 1.01 }}
+                    className="flex items-center justify-between p-4 border rounded-lg bg-card/80 backdrop-blur-sm hover:bg-accent/10 hover:shadow-md transition-all"
+                  >
+                    <div className="flex-1 grid grid-cols-4 gap-4">
+                      <div>
+                        <p className="font-medium">{report.patient_name}</p>
+                        {report.patient_id && (
+                          <p className="text-sm text-muted-foreground">ID: {report.patient_id}</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{report.report_type}</p>
+                        <p className="text-sm text-muted-foreground">Report Type</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">
+                          {new Date(report.uploaded_at).toLocaleDateString()}
+                        </p>
+                        <p className="text-sm text-muted-foreground">Upload Date</p>
+                      </div>
+                      <div>
+                        {getStatusBadge(report.status)}
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{report.report_type}</p>
-                      <p className="text-sm text-muted-foreground">Report Type</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">
-                        {new Date(report.uploaded_at).toLocaleDateString()}
-                      </p>
-                      <p className="text-sm text-muted-foreground">Upload Date</p>
-                    </div>
-                    <div>
-                      {getStatusBadge(report.status)}
-                    </div>
-                  </div>
-                  {report.status === "completed" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => navigate(`/summary/${report.id}`)}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                    {report.status === "completed" && (
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/summary/${report.id}`)}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View
+                        </Button>
+                      </motion.div>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   );
 }
