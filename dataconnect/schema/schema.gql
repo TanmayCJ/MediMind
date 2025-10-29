@@ -1,0 +1,33 @@
+type User @table {
+  displayName: String!
+  email: String!
+  createdAt: Timestamp!
+  organization: String
+  role: String
+}
+
+type Report @table {
+  title: String!
+  uploadDate: Timestamp!
+  fileUrl: String!
+  fileType: String!
+  patientName: String
+  user: User
+}
+
+type Summary @table {
+  summaryText: String!
+  generationDate: Timestamp!
+  keyFindings: String
+  diagnoses: String
+  treatments: String
+  report: Report
+}
+
+type Feedback @table {
+  rating: Int!
+  feedbackDate: Timestamp!
+  comments: String
+  summary: Summary
+  user: User
+}

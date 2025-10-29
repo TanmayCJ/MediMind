@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Function to generate embeddings using Gemini API (FREE!)
+// Function to generate embeddings using Gemini API 
 async function generateGeminiEmbedding(text: string, apiKey: string): Promise<number[]> {
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=${apiKey}`,
@@ -48,7 +48,7 @@ async function getMedicalInsights(text: string, apiKey: string): Promise<any> {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          inputs: text.slice(0, 512), // Truncate to model max length
+          inputs: text.slice(0, 512), 
         }),
       }
     );
@@ -248,20 +248,24 @@ serve(async (req) => {
     }
 
     // Prepare AI prompt with Chain-of-Thought instructions
-    const systemPrompt = `You are an expert medical AI assistant specialized in analyzing diagnostic reports. 
-Your task is to provide a comprehensive analysis with clear Chain-of-Thought reasoning.
+    const systemPrompt = `You are an expert medical AI assistant specialized in analyzing diagnostic reports with professional precision.
 
-You have access to:
-1. The original medical report
-2. Retrieved contextual information from similar past cases (RAG)
-3. Medical domain insights from a specialized BiomedNLP model trained on PubMed literature
+FORMATTING REQUIREMENTS:
+- Write in clear, professional medical language
+- Use complete sentences with proper grammar
+- Be specific and concise
+- Avoid unnecessary jargon, but maintain medical accuracy
+- Each finding should be a complete, standalone statement
+- Each reasoning step should clearly explain the thought process
+- Each recommendation should be actionable and specific
 
-Analyze the medical report and provide:
-1. Key Findings: Extract and list the most important diagnostic findings
-2. Step-by-Step Reasoning: Show your analytical process step by step, incorporating insights from all sources
-3. Recommendations: Provide actionable clinical recommendations based on current medical knowledge
+ANALYSIS STRUCTURE:
+1. Key Clinical Findings: 3-5 critical observations from the report
+2. Chain-of-Thought Analysis: Step-by-step reasoning showing how you arrived at conclusions
+3. Clinical Recommendations: 3-5 actionable next steps with rationale
+4. Complete Summary: Comprehensive narrative synthesis
 
-Be thorough, precise, and maintain medical accuracy.`;
+Your analysis will be displayed in a modern medical intelligence platform with professional formatting.`;
 
     let userPrompt = `Analyze this ${report.report_type} report for patient ${report.patient_name}.
 File: ${report.file_name}`;
@@ -274,20 +278,46 @@ File: ${report.file_name}`;
 
     // Add retrieved context if RAG is enabled
     if (retrievedContext) {
-      userPrompt += `\n\n=== ADDITIONAL CONTEXT (via RAG) ===\n${retrievedContext}\n\n=== END CONTEXT ===\n`;
+      userPrompt += `\n\n=== SIMILAR CASES FROM DATABASE (RAG) ===\n${retrievedContext}\n\n=== END CONTEXT ===\n`;
       console.log('✅ Enhanced with RAG-retrieved context');
     }
 
     // Add HuggingFace medical model insights if available
     if (medicalInsights) {
-      userPrompt += `\n\n=== MEDICAL DOMAIN INSIGHTS (BiomedNLP Model) ===\n${JSON.stringify(medicalInsights, null, 2)}\n\n=== END MEDICAL INSIGHTS ===\n`;
+      userPrompt += `\n\n=== MEDICAL NLP INSIGHTS (BiomedNLP Model) ===\n${JSON.stringify(medicalInsights, null, 2)}\n\n=== END INSIGHTS ===\n`;
       console.log('✅ Enhanced with HuggingFace medical model insights');
     }
 
-    userPrompt += `\n\nProvide a comprehensive analysis with:
-- Key clinical findings (3-5 bullet points)
-- Step-by-step reasoning process (explain your analytical steps, citing which information source supports each conclusion)
-- Clinical recommendations (3-5 actionable items with clinical rationale)`;
+    userPrompt += `\n\nProvide your analysis in the following format:
+
+**KEY CLINICAL FINDINGS:**
+- [Finding 1: Complete, specific observation with measurements/details]
+- [Finding 2: Clear statement about another significant finding]
+- [Finding 3-5: Additional critical findings]
+
+**CHAIN-OF-THOUGHT ANALYSIS:**
+
+Step 1: Clinical Data Review
+[Explain what information you gathered from the report and how it relates to the patient's presentation]
+
+Step 2: Diagnostic Interpretation
+[Describe how you interpreted the findings, what they indicate, and why]
+
+Step 3: Differential Considerations
+[Discuss what conditions were considered and why certain diagnoses are more likely]
+
+Step 4: Synthesis and Conclusion
+[Explain how all findings come together to form the overall clinical picture]
+
+**CLINICAL RECOMMENDATIONS:**
+- [Recommendation 1: Specific action with clear rationale]
+- [Recommendation 2: Another actionable step with medical justification]
+- [Recommendation 3-5: Additional recommendations as appropriate]
+
+**COMPLETE MEDICAL ANALYSIS:**
+[Write a comprehensive 2-3 paragraph narrative summary that synthesizes all findings, reasoning, and recommendations into a cohesive clinical report. This should read like a professional medical consultation note.]
+
+Remember: Be specific, professional, and clinically accurate. Each statement should provide value to the healthcare provider reviewing this analysis.`;
 
     // Call Google Gemini API directly (API key already fetched earlier)
     if (!GEMINI_API_KEY) {

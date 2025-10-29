@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <!-- Background circle with medical blue -->
+  <circle cx="90" cy="90" r="90" fill="#0099C6"/>
+  
+  <!-- Medical cross -->
+  <rect x="72" y="36" width="36" height="108" rx="6" fill="white"/>
+  <rect x="36" y="72" width="108" height="36" rx="6" fill="white"/>
+  
+  <!-- AI brain circuits overlay -->
+  <circle cx="54" cy="54" r="8" fill="#00D4AA" opacity="0.9"/>
+  <circle cx="126" cy="54" r="8" fill="#00D4AA" opacity="0.9"/>
+  <circle cx="54" cy="126" r="8" fill="#00D4AA" opacity="0.9"/>
+  <circle cx="126" cy="126" r="8" fill="#00D4AA" opacity="0.9"/>
+  
+  <!-- Connecting lines for AI neural network feel -->
+  <line x1="54" y1="54" x2="126" y2="54" stroke="#00D4AA" stroke-width="4" opacity="0.7"/>
+  <line x1="54" y1="126" x2="126" y2="126" stroke="#00D4AA" stroke-width="4" opacity="0.7"/>
+  <line x1="54" y1="54" x2="54" y2="126" stroke="#00D4AA" stroke-width="4" opacity="0.7"/>
+  <line x1="126" y1="54" x2="126" y2="126" stroke="#00D4AA" stroke-width="4" opacity="0.7"/>
+  
+  <!-- Additional small circuit nodes -->
+  <circle cx="90" cy="36" r="4" fill="#00D4AA" opacity="0.8"/>
+  <circle cx="90" cy="144" r="4" fill="#00D4AA" opacity="0.8"/>
+  <circle cx="36" cy="90" r="4" fill="#00D4AA" opacity="0.8"/>
+  <circle cx="144" cy="90" r="4" fill="#00D4AA" opacity="0.8"/>
+</svg>

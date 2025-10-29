@@ -6,9 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Activity } from "lucide-react";
+import { Activity, Mail } from "lucide-react";
 
 export default function Auth() {
   const [email, setEmail] = useState("");
@@ -16,6 +17,7 @@ export default function Auth() {
   const [fullName, setFullName] = useState("");
   const [role, setRole] = useState("doctor");
   const [loading, setLoading] = useState(false);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
 
@@ -32,7 +34,12 @@ export default function Auth() {
     const { error } = await signIn(email, password);
     
     if (error) {
-      toast.error(error.message);
+      if (error.message.includes("Email not confirmed")) {
+        setShowEmailVerification(true);
+        toast.error("Please verify your email before signing in");
+      } else {
+        toast.error(error.message);
+      }
     } else {
       toast.success("Welcome back!");
       navigate("/dashboard");
@@ -49,8 +56,8 @@ export default function Auth() {
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Account created successfully!");
-      navigate("/dashboard");
+      setShowEmailVerification(true);
+      toast.success("Account created! Please check your email for verification.");
     }
     setLoading(false);
   };
@@ -68,6 +75,16 @@ export default function Auth() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {showEmailVerification && (
+            <Alert className="mb-4 bg-primary/10 border-primary">
+              <Mail className="h-4 w-4" />
+              <AlertDescription className="ml-2">
+                <strong>Check your email!</strong> We've sent you a verification link. 
+                Please verify your email address before signing in.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>

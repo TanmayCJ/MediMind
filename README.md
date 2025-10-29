@@ -9,10 +9,11 @@
 [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 [![Google Gemini](https://img.shields.io/badge/Google%20Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)](https://huggingface.co/)
+[![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
 
 **An intelligent medical report summarization system leveraging Machine Learning through vector embeddings, RAG (Retrieval-Augmented Generation), and medical-domain pre-trained models.**
 
-[Features](#-features) • [ML Architecture](#-machine-learning-architecture) • [Tech Stack](#-tech-stack) • [Getting Started](#-getting-started) • [Documentation](#-documentation)
+🌐 **[Live Demo](https://medimind-alpha.web.app)** | 📚 [Documentation](#-documentation) | 🚀 [Getting Started](#-getting-started)
 
 ---
 
@@ -20,16 +21,27 @@
 
 ## 📋 Overview
 
-**MediMind AI** transforms complex medical diagnostic reports into actionable insights using cutting-edge Machine Learning techniques. This system doesn't require training custom models—instead, it leverages **pre-trained transformer neural networks** for text vectorization, semantic search, and intelligent summarization.
+**MediMind AI** transforms complex medical diagnostic reports into actionable insights using cutting-edge Machine Learning techniques. This production-ready system leverages **pre-trained transformer neural networks** for text vectorization, semantic search, and intelligent summarization.
 
-### 🎯 Key Capabilities
+### � Live Application
 
-- 📄 **Upload & Process**: Medical reports (radiology, pathology, MRI, CT scans)
+**🔗 Access the platform:** [https://medimind-alpha.web.app](https://medimind-alpha.web.app)
+
+- ✅ **24/7 Availability** - Hosted on Firebase with global CDN
+- ✅ **HTTPS Secured** - Automatic SSL certificates
+- ✅ **Real-time Processing** - Instant AI analysis
+- ✅ **Mobile Responsive** - Works on all devices
+
+### �🎯 Key Capabilities
+
+- 📄 **Upload & Process**: Medical reports (radiology, pathology, MRI, CT scans, lab reports)
 - 🧠 **RAG Pipeline**: Vector embeddings + semantic similarity search
 - 🤖 **Medical AI**: Domain-specific insights from BiomedNLP-PubMedBERT
 - 🔍 **Chain-of-Thought**: Transparent, step-by-step AI reasoning
 - 📊 **Structured Output**: Key findings, clinical reasoning, recommendations
+- 📑 **Professional PDFs**: Medical-grade report generation
 - 🔐 **HIPAA-Ready**: Secure authentication and encrypted storage
+- 💾 **History Tracking**: Complete audit trail of all analyses
 
 ---
 
@@ -425,6 +437,153 @@ Before you begin, ensure you have:
 ```bash
 npm run build
 npm run preview
+```
+
+### 🚀 Deploy to Firebase Hosting
+
+**MediMind AI is deployed on Firebase Hosting for 24/7 availability with global CDN.**
+
+#### Prerequisites
+```bash
+# Install Firebase CLI globally
+npm install -g firebase-tools
+
+# Login to Firebase
+firebase login
+```
+
+#### Initial Setup
+
+1. **Initialize Firebase in your project:**
+   ```bash
+   firebase init hosting
+   ```
+
+2. **Configuration Files Created:**
+
+   `.firebaserc` - Links your project to Firebase:
+   ```json
+   {
+     "projects": {
+       "default": "gen-lang-client-0593072998"
+     }
+   }
+   ```
+
+   `firebase.json` - Hosting configuration:
+   ```json
+   {
+     "hosting": {
+       "site": "medimind-alpha",
+       "public": "dist",
+       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+       "rewrites": [
+         {
+           "source": "**",
+           "destination": "/index.html"
+         }
+       ]
+     }
+   }
+   ```
+
+#### Deploy Process
+
+```bash
+# 1. Build the production bundle
+npm run build
+
+# 2. Deploy to Firebase Hosting
+firebase deploy --only hosting
+
+# 3. Access your live site
+# https://medimind-alpha.web.app
+```
+
+#### Custom Site Setup (Optional)
+
+Create a custom Firebase hosting site with a better URL:
+
+```bash
+# Create a new hosting site
+firebase hosting:sites:create medimind-alpha
+
+# Update firebase.json to use the new site
+# Add "site": "medimind-alpha" to the hosting config
+
+# Deploy to the custom site
+firebase deploy --only hosting
+```
+
+#### Firebase Hosting Features
+
+✅ **Global CDN** - Fast loading worldwide  
+✅ **Auto SSL** - HTTPS certificates included  
+✅ **Zero Downtime** - Rolling deployments  
+✅ **Instant Rollback** - Revert to previous versions  
+✅ **Custom Domains** - Connect your own domain  
+✅ **Atomic Deployments** - All-or-nothing updates
+
+#### Deployment Commands
+
+```bash
+# Deploy everything
+firebase deploy
+
+# Deploy only hosting
+firebase deploy --only hosting
+
+# Deploy with custom message
+firebase deploy -m "Updated PDF generation"
+
+# Preview changes before deploying
+firebase hosting:channel:deploy preview
+
+# Check deployment history
+firebase hosting:releases:list
+
+# Rollback to previous version
+firebase hosting:clone SOURCE_SITE_ID:SOURCE_VERSION TARGET_SITE_ID
+```
+
+#### Update Supabase Site URL
+
+**Important:** After deploying, update your Supabase project settings:
+
+1. Go to **Supabase Dashboard** → **Authentication** → **URL Configuration**
+2. Set **Site URL** to: `https://medimind-alpha.web.app`
+3. Add **Redirect URLs**:
+   - `https://medimind-alpha.web.app/**`
+   - `https://medimind-alpha.web.app/auth/callback`
+   - `https://medimind-alpha.web.app/dashboard`
+
+This ensures email verification links point to your production URL, not localhost.
+
+#### Continuous Deployment
+
+For automated deployments, set up GitHub Actions:
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to Firebase
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+      - run: npm install
+      - run: npm run build
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          channelId: live
+          projectId: gen-lang-client-0593072998
 ```
 
 ---
