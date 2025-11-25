@@ -40,11 +40,11 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       
       {/* Sidebar */}
       <aside className={`
-        fixed lg:relative inset-y-0 left-0 z-50
+        fixed inset-y-0 left-0 z-50
+        lg:relative
         w-64 bg-sidebar border-r border-sidebar-border flex flex-col
         transform transition-transform duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0
+        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         <div className="p-6 border-b border-sidebar-border">
           <div className="flex items-center justify-between">
