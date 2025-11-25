@@ -12,6 +12,7 @@ import UploadReport from "./pages/UploadReport";
 import SummaryViewer from "./pages/SummaryViewer";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
+import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
               <Route path="/upload" element={<ProtectedRoute><DashboardLayout><UploadReport /></DashboardLayout></ProtectedRoute>} />
               <Route path="/summary/:id" element={<ProtectedRoute><DashboardLayout><SummaryViewer /></DashboardLayout></ProtectedRoute>} />
               <Route path="/history" element={<ProtectedRoute><DashboardLayout><History /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/chat" element={<ProtectedRoute><DashboardLayout><Chat /></DashboardLayout></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><DashboardLayout><Settings /></DashboardLayout></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

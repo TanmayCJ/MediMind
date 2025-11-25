@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Activity, LayoutDashboard, Upload, History, Settings, LogOut } from "lucide-react";
+import { Activity, LayoutDashboard, Upload, History, Settings, LogOut, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -15,6 +15,7 @@ export function Sidebar() {
   const navItems = [
     { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
     { to: "/upload", icon: Upload, label: "Upload Report" },
+    { to: "/chat", icon: MessageSquare, label: "AI Assistant" },
     { to: "/history", icon: History, label: "History" },
     { to: "/settings", icon: Settings, label: "Settings" },
   ];
