@@ -9,6 +9,7 @@ import { ArrowLeft, Download, RefreshCw, FileText, Lightbulb, Loader2, CheckCirc
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import jsPDF from 'jspdf';
+import FloatingChat from "@/components/FloatingChat";
 
 interface Report {
   id: string;
@@ -496,11 +497,11 @@ export default function SummaryViewer() {
                     {report.patient_name}
                   </h1>
                 </div>
-                <p className="text-muted-foreground flex items-center gap-2 ml-11">
+                <div className="text-muted-foreground flex items-center gap-2 ml-11">
                   <Badge variant="outline" className="text-xs">{report.report_type}</Badge>
                   <span className="text-xs">•</span>
                   <span className="text-xs">{new Date(report.uploaded_at).toLocaleDateString()}</span>
-                </p>
+                </div>
               </div>
             </div>
             <div className="flex gap-3">
@@ -1144,7 +1145,19 @@ export default function SummaryViewer() {
           </>
         )}
       </div>
-    </div>
+      </div>
+
+      {/* Floating AI Assistant */}
+      {report && (
+        <FloatingChat 
+          reportId={report.id}
+          reportContext={{
+            patient_name: report.patient_name,
+            report_type: report.report_type,
+            summary: summary
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -36,6 +36,7 @@
 - 📄 **Upload & Process**: Medical reports (radiology, pathology, MRI, CT scans, lab reports)
 - 🧠 **RAG Pipeline**: Vector embeddings (768-dim) + semantic similarity search with pgvector
 - 🤖 **AI Analysis**: Powered by Google Gemini 2.5 Flash with 16K token output
+- 💬 **Floating AI Assistant**: Context-aware chatbot on every report with conversational AI
 - 🔍 **Chain-of-Thought**: Transparent, step-by-step diagnostic reasoning (4 stages)
 - 📖 **Medical Citations**: Evidence-based references to clinical guidelines and standards
 - 📊 **Structured Output**: Key findings, clinical reasoning, actionable recommendations
@@ -43,6 +44,7 @@
 - 🔐 **Secure**: Authentication via Supabase, encrypted file storage
 - 💾 **History Tracking**: Complete audit trail of all analyses
 - 🎨 **Modern UI**: Responsive design with Framer Motion animations
+- 🧭 **Platform Navigation**: AI helps users navigate the application
 
 ---
 
@@ -341,6 +343,9 @@ Use pre-trained models → Fine-tune with prompts → Inference
 - **Medical Insights**: BiomedNLP model trained on 15M medical papers
 - **Chain-of-Thought**: Transparent step-by-step reasoning
 - **Structured Output**: Key findings, reasoning, recommendations, full summary
+- **Floating AI Assistant**: Context-aware chatbot appears on every report page
+- **Conversational AI**: Ask questions about reports, get explanations, navigate the platform
+- **Multi-Turn Conversations**: Maintains conversation history for natural dialogue
 
 ### 📄 Report Management
 - **Multi-Format Support**: PDF and text files
@@ -355,6 +360,7 @@ Use pre-trained models → Fine-tune with prompts → Inference
 - **Dark Mode**: Professional clinical environment theme
 - **Mobile Responsive**: Access from any device
 - **Intuitive Navigation**: Clean dashboard layout
+- **Floating Assistant Button**: Minimizable chat window with smooth animations
 
 ### 🔐 Security & Privacy
 - **Supabase Auth**: Email/password authentication

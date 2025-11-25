@@ -94,8 +94,8 @@ serve(async (req) => {
   }
 
   try {
-    const { message, conversationHistory } = await req.json();
-    console.log('Chat request received:', { message });
+    const { message, conversationHistory, reportId, reportContext } = await req.json();
+    console.log('Chat request received:', { message, reportId, hasContext: !!reportContext });
 
     // Get Supabase client with user context
     const authHeader = req.headers.get('Authorization');
@@ -119,7 +119,69 @@ serve(async (req) => {
 
     console.log('🔍 Retrieving relevant medical context...');
 
-    // Retrieve relevant context using RAG
+    // Build current report context first
+    let currentReportContext = '';
+    let currentReportChunks = '';
+    
+    if (reportId && reportContext) {
+      console.log(`📄 Fetching report ${reportId} from database...`);
+      
+      // Get report chunks from report_chunks table (created by process-document function)
+      const { data: reportChunks, error: chunksError } = await supabaseClient
+        .from('report_chunks')
+        .select('content, chunk_index')
+        .eq('report_id', reportId)
+        .order('chunk_index', { ascending: true });
+
+      if (chunksError) {
+        console.error('❌ Error fetching report chunks:', chunksError);
+      } else if (reportChunks && reportChunks.length > 0) {
+        currentReportChunks = reportChunks.map((c: any) => c.content).join('\n\n');
+        console.log(`✅ Retrieved ${reportChunks.length} chunks from report_chunks table`);
+      } else {
+        console.log('⚠️ No chunks found in report_chunks table');
+        
+        // Try downloading the file directly from storage as fallback
+        const { data: reportData } = await supabaseClient
+          .from('reports')
+          .select('file_url, file_name')
+          .eq('id', reportId)
+          .single();
+          
+        if (reportData?.file_url) {
+          console.log('📥 Attempting to download file from storage...');
+          const filePath = reportData.file_url.split('/').slice(-2).join('/');
+          
+          const { data: fileData, error: downloadError } = await supabaseClient
+            .storage
+            .from('medical-reports')
+            .download(filePath);
+            
+          if (!downloadError && fileData) {
+            currentReportChunks = await fileData.text();
+            console.log(`✅ Downloaded file content (${currentReportChunks.length} characters)`);
+          }
+        }
+      }
+
+      currentReportContext = `\n\n=== CURRENT REPORT BEING VIEWED ===
+Patient: ${reportContext.patient_name}
+Report Type: ${reportContext.report_type}
+
+${reportContext.summary ? `AI ANALYSIS SUMMARY:
+Key Findings: ${reportContext.summary.key_findings?.join(', ') || 'Processing...'}
+Recommendations: ${reportContext.summary.recommendations?.join(', ') || 'Processing...'}
+Full Summary: ${reportContext.summary.full_summary || 'Processing...'}
+
+` : ''}FULL REPORT CONTENT:
+${currentReportChunks || 'ERROR: Report content not available. The report may still be processing.'}
+
+=== END OF CURRENT REPORT ===
+
+IMPORTANT: The user is viewing THIS specific report. Answer all questions based on the content above.`;
+    }
+
+    // Retrieve relevant context using RAG from other reports
     const { context, sources } = await retrieveContext(
       message,
       user.id,
@@ -127,7 +189,7 @@ serve(async (req) => {
       GEMINI_API_KEY
     );
 
-    console.log(`✅ Retrieved ${sources.length} relevant sources`);
+    console.log(`✅ Retrieved ${sources.length} relevant sources from other reports`);
 
     // Build conversation history context
     const historyContext = conversationHistory
@@ -136,41 +198,36 @@ serve(async (req) => {
       .join('\n') || '';
 
     // Prepare prompt for Gemini
-    const systemPrompt = `You are an expert medical AI assistant helping patients understand their medical reports and diagnoses.
+    const systemPrompt = `You are a friendly medical AI assistant in the MediMind app. You help patients understand their reports, answer health questions, and navigate the platform.
 
-CAPABILITIES:
-- Answer questions about medical reports, test results, and diagnoses
-- Explain medical terminology in simple language
-- Provide insights based on available medical records
-- Offer general health information and guidance
+RESPONSE STYLE:
+- Be conversational and warm, not robotic
+- Keep answers concise - match the user's energy
+- If they ask for "gist" or "simple summary", give 2-3 short paragraphs MAX
+- Use simple language, avoid medical jargon unless explaining it
+- Be direct and natural
 
-GUIDELINES:
-- Be empathetic, clear, and professional
-- Use simple language when explaining medical terms
-- Always cite specific reports when referencing medical information
-- If information is not in the provided context, say so clearly
-- Never provide definitive diagnoses - only explain existing findings
-- Encourage consulting with healthcare professionals for medical decisions
-- Be concise but comprehensive in responses
+YOUR ABILITIES:
+1. Explain medical reports and findings in plain English
+2. Answer general health/medical questions using your knowledge
+3. Guide users through the MediMind platform features
+4. Reference specific reports when discussing uploaded documents
 
-IMPORTANT:
-- You are NOT replacing a doctor - you're helping patients understand their existing reports
-- Always maintain patient confidentiality and professionalism
-- If a question is outside your scope, politely redirect to healthcare professionals`;
+RULES:
+- You're NOT a doctor - you help understand existing reports
+- Always suggest consulting healthcare professionals for medical decisions
+- If info isn't in the context, say so clearly and briefly
+- Cite sources when referencing specific medical data`;
 
-    const userPrompt = `${historyContext ? `\n\nPREVIOUS CONVERSATION:\n${historyContext}\n` : ''}
+    const userPrompt = `${historyContext ? `Previous chat:\n${historyContext}\n\n` : ''}${currentReportContext}
 
-AVAILABLE MEDICAL CONTEXT:
-${context || 'No medical records available in the system yet. Please inform the user to upload medical reports first.'}
+${context ? `Other available reports:\n${context}\n\n` : ''}User: ${message}
 
-USER QUESTION:
-${message}
-
-Provide a helpful, accurate response based on the available medical context. If referencing specific information, mention which report it comes from. Keep your response conversational and easy to understand.`;
+Respond naturally and concisely. If they want a "gist" or "summary", keep it brief (2-3 short paragraphs). Match their tone.`;
 
     console.log('🤖 Calling Gemini 2.5 Flash...');
 
-    // Call Gemini API
+    // Call Gemini API - using same model as summary generation for consistency
     const aiResponse = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
@@ -181,14 +238,14 @@ Provide a helpful, accurate response based on the available medical context. If 
             parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
           }],
           generationConfig: {
-            temperature: 0.7,
+            temperature: 0.9,
             topK: 40,
             topP: 0.95,
-            maxOutputTokens: 2048,
+            maxOutputTokens: 1024,
           },
           systemInstruction: {
             parts: [{
-              text: "You are a helpful medical AI assistant. Respond conversationally and cite sources when referencing specific medical information."
+              text: "You are a friendly, conversational medical AI assistant. Be concise and natural. When asked for a gist or summary, keep it brief and casual - 2-3 short paragraphs max. Don't over-explain. Match the user's tone."
             }]
           }
         }),
