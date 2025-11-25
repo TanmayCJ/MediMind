@@ -132,7 +132,7 @@ export default function UploadReport() {
       }
       
       // Generate AI summary
-      console.log('🤖 Calling generate-summary-new edge function...');
+      console.log('🤖 Calling generate-summary edge function...');
       toast.info("Generating AI summary...");
       
       const { data: summaryData, error: summaryError } = await supabase.functions.invoke(EDGE_FUNCTIONS.GENERATE_SUMMARY, {

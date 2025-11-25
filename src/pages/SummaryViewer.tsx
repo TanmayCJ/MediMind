@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Download, RefreshCw, FileText, Lightbulb, List, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, RefreshCw, FileText, Lightbulb, Loader2, CheckCircle2, Brain, Stethoscope, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import jsPDF from 'jspdf';
@@ -20,11 +20,24 @@ interface Report {
   uploaded_at: string;
 }
 
+interface Source {
+  type: 'current_report' | 'similar_report';
+  report_id: string;
+  patient_name: string;
+  report_type?: string;
+  file_name?: string;
+  relevance: number;
+  snippet?: string;
+  chunk_index?: number;
+}
+
 interface Summary {
   key_findings: string[];
   reasoning_steps: any;
   recommendations: string[];
   full_summary: string;
+  sources?: Source[];
+  rag_context_used?: string[];
 }
 
 export default function SummaryViewer() {
@@ -413,12 +426,29 @@ export default function SummaryViewer() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
         <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          className="rounded-full h-12 w-12 border-b-2 border-primary"
-        />
+          animate={{ 
+            rotate: 360,
+            scale: [1, 1.1, 1]
+          }}
+          transition={{ 
+            rotate: { duration: 2, repeat: Infinity, ease: "linear" },
+            scale: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+          }}
+          className="relative"
+        >
+          <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full" />
+          <Loader2 className="h-16 w-16 text-primary relative z-10" />
+        </motion.div>
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mt-6 text-muted-foreground font-medium"
+        >
+          Loading analysis...
+        </motion.p>
       </div>
     );
   }
@@ -437,35 +467,66 @@ export default function SummaryViewer() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      <motion.div 
-        className="mb-6 flex items-center justify-between"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <div className="flex items-center gap-4">
-          <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-            <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </motion.div>
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              {report.patient_name}
-            </h1>
-            <p className="text-muted-foreground">
-              {report.report_type} • {new Date(report.uploaded_at).toLocaleDateString()}
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      <div className="container mx-auto p-6 max-w-7xl">
+        <motion.div 
+          className="mb-8"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <motion.div whileHover={{ scale: 1.1, x: -2 }} whileTap={{ scale: 0.9 }}>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={() => navigate("/dashboard")}
+                  className="hover:bg-primary/10 hover:text-primary transition-all"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              </motion.div>
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5">
+                    <Stethoscope className="h-5 w-5 text-primary" />
+                  </div>
+                  <h1 className="text-4xl font-bold bg-gradient-to-r from-primary via-primary/80 to-accent bg-clip-text text-transparent">
+                    {report.patient_name}
+                  </h1>
+                </div>
+                <p className="text-muted-foreground flex items-center gap-2 ml-11">
+                  <Badge variant="outline" className="text-xs">{report.report_type}</Badge>
+                  <span className="text-xs">•</span>
+                  <span className="text-xs">{new Date(report.uploaded_at).toLocaleDateString()}</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button 
+                  variant="outline" 
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                  className="gap-2 hover:border-primary/50 hover:bg-primary/5"
+                >
+                  <RefreshCw className={`h-4 w-4 ${regenerating ? 'animate-spin' : ''}`} />
+                  Regenerate
+                </Button>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button 
+                  onClick={handleDownloadPDF}
+                  className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25"
+                >
+                  <Download className="h-4 w-4" />
+                  Export PDF
+                </Button>
+              </motion.div>
+            </div>
           </div>
-        </div>
-        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-          <Button variant="outline" onClick={handleDownloadPDF}>
-            <Download className="h-4 w-4 mr-2" />
-            Download PDF
-          </Button>
         </motion.div>
-      </motion.div>
 
       {/* Single Column Layout - Better UX */}
       <div className="max-w-5xl mx-auto space-y-6">
@@ -546,91 +607,132 @@ export default function SummaryViewer() {
           </motion.div>
         ) : (
           <>
-            {/* Key Findings Card */}
+            {/* Key Findings Card - Enhanced */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <Card className="backdrop-blur-xl bg-card/40 border-primary/20 shadow-2xl overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-primary/10 to-transparent rounded-full blur-3xl" />
-                <CardHeader className="relative">
+              <Card className="group backdrop-blur-xl bg-gradient-to-br from-card/80 via-card/60 to-card/40 border-primary/30 shadow-2xl hover:shadow-primary/20 hover:border-primary/50 transition-all duration-300 overflow-hidden">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-full blur-3xl group-hover:from-primary/15 transition-all duration-500" />
+                <CardHeader className="relative pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5">
-                      <Lightbulb className="h-5 w-5 text-primary" />
-                    </div>
+                    <motion.div 
+                      className="p-3 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 shadow-lg shadow-primary/20"
+                      whileHover={{ scale: 1.05, rotate: 5 }}
+                    >
+                      <Lightbulb className="h-6 w-6 text-primary" />
+                    </motion.div>
                     <div>
-                      <CardTitle className="text-xl">Key Clinical Findings</CardTitle>
-                      <CardDescription>Primary observations and diagnostic results</CardDescription>
+                      <CardTitle className="text-2xl font-bold">Key Clinical Findings</CardTitle>
+                      <CardDescription className="text-sm">Primary observations and diagnostic results</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="relative">
-                  <div className="space-y-3">
-                    {summary.key_findings?.map((finding, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        className="group flex gap-4 p-4 border-l-4 border-primary/50 bg-gradient-to-r from-primary/5 to-transparent rounded-r-lg hover:border-primary hover:shadow-lg hover:from-primary/10 transition-all duration-300"
-                      >
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                          {i + 1}
-                        </div>
-                        <p className="text-sm leading-relaxed">{finding}</p>
-                      </motion.div>
-                    ))}
+                <CardContent className="relative pt-6">
+                  <div className="space-y-4">
+                    {summary.key_findings?.map((finding, i) => {
+                      // Extract medical reference citations from the finding text
+                      const refMatch = finding.match(/\(Ref:\s*([^)]+)\)/i);
+                      const findingText = finding.replace(/\(Ref:\s*[^)]+\)/i, '').trim();
+                      const medicalRefs = refMatch ? refMatch[1].split(',').map(s => s.trim()) : [];
+                      
+                      return (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.1, type: "spring", stiffness: 100 }}
+                          className="group flex flex-col gap-3 p-5 border-l-4 border-primary/40 bg-gradient-to-r from-primary/8 via-primary/4 to-transparent rounded-r-xl hover:border-primary hover:shadow-xl hover:from-primary/12 hover:translate-x-1 transition-all duration-300"
+                        >
+                          <div className="flex gap-4">
+                            <motion.div 
+                              className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center text-primary font-bold shadow-md"
+                              whileHover={{ scale: 1.1, rotate: 5 }}
+                            >
+                              {i + 1}
+                            </motion.div>
+                            <p className="text-base leading-relaxed flex-1 pt-1.5">{findingText}</p>
+                          </div>
+                          {medicalRefs.length > 0 && (
+                            <motion.div 
+                              initial={{ opacity: 0, y: -5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: (i * 0.1) + 0.2 }}
+                              className="flex flex-wrap gap-2 ml-14"
+                            >
+                              {medicalRefs.map((ref, idx) => (
+                                <Badge key={idx} variant="secondary" className="text-xs bg-blue-500/15 text-blue-600 border-blue-500/30 hover:bg-blue-500/25 transition-all">
+                                  📖 {ref}
+                                </Badge>
+                              ))}
+                            </motion.div>
+                          )}
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
 
-            {/* Chain of Thought Reasoning Card */}
+            {/* Chain of Thought Reasoning Card - Enhanced */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
             >
-              <Card className="backdrop-blur-xl bg-card/40 border-accent/20 shadow-2xl overflow-hidden">
-                <div className="absolute top-0 left-0 w-64 h-64 bg-gradient-to-br from-accent/10 to-transparent rounded-full blur-3xl" />
-                <CardHeader className="relative">
+              <Card className="group backdrop-blur-xl bg-gradient-to-br from-card/80 via-card/60 to-card/40 border-accent/30 shadow-2xl hover:shadow-accent/20 hover:border-accent/50 transition-all duration-300 overflow-hidden">
+                <div className="absolute top-0 left-0 w-96 h-96 bg-gradient-to-br from-accent/10 via-accent/5 to-transparent rounded-full blur-3xl group-hover:from-accent/15 transition-all duration-500" />
+                <CardHeader className="relative pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-gradient-to-br from-accent/20 to-accent/5">
-                      <svg className="h-5 w-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                      </svg>
-                    </div>
+                    <motion.div 
+                      className="p-3 rounded-xl bg-gradient-to-br from-accent/30 to-accent/10 shadow-lg shadow-accent/20"
+                      whileHover={{ scale: 1.05, rotate: -5 }}
+                    >
+                      <Brain className="h-6 w-6 text-accent" />
+                    </motion.div>
                     <div>
-                      <CardTitle className="text-xl">Chain-of-Thought Analysis</CardTitle>
-                      <CardDescription>Step-by-step reasoning process</CardDescription>
+                      <CardTitle className="text-2xl font-bold">Chain-of-Thought Analysis</CardTitle>
+                      <CardDescription className="text-sm">Step-by-step diagnostic reasoning</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="relative">
-                  <div className="space-y-4">
+                <CardContent className="relative pt-6">
+                  <div className="space-y-6">
                     {summary.reasoning_steps && Object.entries(summary.reasoning_steps).map(([step, reasoning], i, arr) => (
                       <motion.div
                         key={i}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.1 }}
+                        transition={{ delay: i * 0.15, type: "spring", stiffness: 80 }}
                         className="relative"
                       >
-                        <div className="flex gap-4">
+                        <div className="flex gap-5">
                           <div className="relative flex flex-col items-center">
-                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-accent to-accent/70 flex items-center justify-center text-white font-bold shadow-lg">
+                            <motion.div 
+                              className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-accent via-accent/80 to-accent/60 flex items-center justify-center text-white font-bold shadow-xl shadow-accent/30"
+                              whileHover={{ scale: 1.1, rotate: 5 }}
+                            >
                               {i + 1}
-                            </div>
+                            </motion.div>
                             {i < arr.length - 1 && (
-                              <div className="w-0.5 h-full bg-gradient-to-b from-accent/50 to-transparent absolute top-10" />
+                              <motion.div 
+                                className="w-1 h-full bg-gradient-to-b from-accent/50 via-accent/30 to-transparent absolute top-14 rounded-full"
+                                initial={{ scaleY: 0 }}
+                                animate={{ scaleY: 1 }}
+                                transition={{ delay: (i * 0.15) + 0.3, duration: 0.5 }}
+                              />
                             )}
                           </div>
-                          <div className="flex-1 pb-6">
-                            <div className="p-4 rounded-lg bg-gradient-to-r from-accent/5 to-transparent border border-accent/20 hover:border-accent/40 hover:shadow-md transition-all duration-300">
-                              <h4 className="font-semibold text-accent mb-2">{step}</h4>
-                              <p className="text-sm leading-relaxed text-muted-foreground">{String(reasoning)}</p>
-                            </div>
+                          <div className="flex-1 pb-8">
+                            <motion.div 
+                              className="p-5 rounded-xl bg-gradient-to-r from-accent/10 via-accent/5 to-transparent border border-accent/30 hover:border-accent/50 hover:shadow-xl hover:from-accent/15 transition-all duration-300"
+                              whileHover={{ x: 5 }}
+                            >
+                              <h4 className="font-bold text-accent mb-3 text-lg">{step}</h4>
+                              <p className="text-sm leading-relaxed">{String(reasoning)}</p>
+                            </motion.div>
                           </div>
                         </div>
                       </motion.div>
@@ -640,65 +742,95 @@ export default function SummaryViewer() {
               </Card>
             </motion.div>
 
-            {/* Clinical Recommendations Card */}
+            {/* Clinical Recommendations Card - Enhanced */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
             >
-              <Card className="backdrop-blur-xl bg-card/40 border-green-500/20 shadow-2xl overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-green-500/10 to-transparent rounded-full blur-3xl" />
-                <CardHeader className="relative">
+              <Card className="group backdrop-blur-xl bg-gradient-to-br from-card/80 via-card/60 to-card/40 border-green-500/30 shadow-2xl hover:shadow-green-500/20 hover:border-green-500/50 transition-all duration-300 overflow-hidden">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-green-500/10 via-green-500/5 to-transparent rounded-full blur-3xl group-hover:from-green-500/15 transition-all duration-500" />
+                <CardHeader className="relative pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/20 to-green-500/5">
-                      <svg className="h-5 w-5 text-green-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M9 11l3 3L22 4"/>
-                        <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-                      </svg>
-                    </div>
+                    <motion.div 
+                      className="p-3 rounded-xl bg-gradient-to-br from-green-500/30 to-green-500/10 shadow-lg shadow-green-500/20"
+                      whileHover={{ scale: 1.05, rotate: 5 }}
+                    >
+                      <CheckCircle2 className="h-6 w-6 text-green-500" />
+                    </motion.div>
                     <div>
-                      <CardTitle className="text-xl">Clinical Recommendations</CardTitle>
-                      <CardDescription>Actionable next steps and considerations</CardDescription>
+                      <CardTitle className="text-2xl font-bold">Clinical Recommendations</CardTitle>
+                      <CardDescription className="text-sm">Actionable next steps and considerations</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="relative">
-                  <div className="space-y-3">
-                    {summary.recommendations?.map((rec, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.1 }}
-                        className="group flex gap-4 p-4 border-l-4 border-green-500/50 bg-gradient-to-r from-green-500/5 to-transparent rounded-r-lg hover:border-green-500 hover:shadow-lg hover:from-green-500/10 transition-all duration-300"
-                      >
-                        <svg className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="9 11 12 14 22 4"/>
-                          <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-                        </svg>
-                        <p className="text-sm leading-relaxed">{rec}</p>
-                      </motion.div>
-                    ))}
+                <CardContent className="relative pt-6">
+                  <div className="space-y-4">
+                    {summary.recommendations?.map((rec, i) => {
+                      // Extract medical reference citations from recommendations
+                      const refMatch = rec.match(/\(Ref:\s*([^)]+)\)/i);
+                      const recText = rec.replace(/\(Ref:\s*[^)]+\)/i, '').trim();
+                      const medicalRefs = refMatch ? refMatch[1].split(',').map(s => s.trim()) : [];
+                      
+                      return (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.1, type: "spring", stiffness: 100 }}
+                          className="group flex flex-col gap-3 p-5 border-l-4 border-green-500/40 bg-gradient-to-r from-green-500/8 via-green-500/4 to-transparent rounded-r-xl hover:border-green-500 hover:shadow-xl hover:from-green-500/12 hover:translate-x-1 transition-all duration-300"
+                        >
+                          <div className="flex gap-4">
+                            <motion.div
+                              className="flex-shrink-0 w-7 h-7 rounded-full bg-gradient-to-br from-green-500/30 to-green-500/10 flex items-center justify-center shadow-md"
+                              whileHover={{ scale: 1.1, rotate: 360 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            </motion.div>
+                            <p className="text-base leading-relaxed flex-1 pt-0.5">{recText}</p>
+                          </div>
+                          {medicalRefs.length > 0 && (
+                            <motion.div 
+                              initial={{ opacity: 0, y: -5 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: (i * 0.1) + 0.2 }}
+                              className="flex flex-wrap gap-2 ml-11"
+                            >
+                              {medicalRefs.map((ref, idx) => (
+                                <Badge key={idx} variant="secondary" className="text-xs bg-green-500/15 text-green-600 border-green-500/30 hover:bg-green-500/25 transition-all">
+                                  📖 {ref}
+                                </Badge>
+                              ))}
+                            </motion.div>
+                          )}
+                        </motion.div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
 
-            {/* Full Summary Card */}
+            {/* Full Summary Card - Enhanced */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.5 }}
             >
-              <Card className="backdrop-blur-xl bg-card/40 border-primary/20 shadow-2xl overflow-hidden">
-                <CardHeader>
+              <Card className="group backdrop-blur-xl bg-gradient-to-br from-card/80 via-card/60 to-card/40 border-primary/30 shadow-2xl hover:shadow-primary/20 hover:border-primary/50 transition-all duration-300 overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary via-accent to-green-500" />
+                <CardHeader className="pt-8">
                   <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5">
-                      <FileText className="h-5 w-5 text-primary" />
-                    </div>
+                    <motion.div 
+                      className="p-3 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 shadow-lg shadow-primary/20"
+                      whileHover={{ scale: 1.05, rotate: -5 }}
+                    >
+                      <FileText className="h-6 w-6 text-primary" />
+                    </motion.div>
                     <div>
-                      <CardTitle className="text-xl">Complete Medical Analysis</CardTitle>
-                      <CardDescription>Comprehensive diagnostic summary</CardDescription>
+                      <CardTitle className="text-2xl font-bold">Complete Medical Analysis</CardTitle>
+                      <CardDescription className="text-sm">Comprehensive diagnostic summary</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
@@ -849,12 +981,14 @@ export default function SummaryViewer() {
                                                       <p className="text-sm leading-relaxed">{subItem.text}</p>
                                                     </div>
                                                   );
-                                                } else {
+                                                } else if (typeof subItem === 'string') {
                                                   return (
                                                     <div key={subIndex} className="p-3 rounded-lg bg-gradient-to-r from-muted/20 to-transparent">
                                                       <p className="text-sm leading-relaxed">{subItem}</p>
                                                     </div>
                                                   );
+                                                } else {
+                                                  return null;
                                                 }
                                               })}
                                             </div>
@@ -867,12 +1001,14 @@ export default function SummaryViewer() {
                                             <p className="text-sm leading-relaxed">{contentItem.text}</p>
                                           </div>
                                         );
-                                      } else {
+                                      } else if (typeof contentItem === 'string') {
                                         return (
                                           <div key={contentIndex} className="p-3 rounded-lg bg-gradient-to-r from-muted/20 to-transparent">
                                             <p className="text-sm leading-relaxed">{contentItem}</p>
                                           </div>
                                         );
+                                      } else {
+                                        return null;
                                       }
                                     })}
                                   </div>
@@ -896,12 +1032,15 @@ export default function SummaryViewer() {
                                             <p className="text-sm leading-relaxed">{contentItem.text}</p>
                                           </div>
                                         );
-                                      } else {
+                                      } else if (typeof contentItem === 'string') {
                                         return (
                                           <div key={contentIndex} className="p-3 rounded-lg bg-gradient-to-r from-muted/20 to-transparent">
                                             <p className="text-sm leading-relaxed">{contentItem}</p>
                                           </div>
                                         );
+                                      } else {
+                                        // Skip objects that aren't bullet points
+                                        return null;
                                       }
                                     })}
                                   </div>
@@ -933,9 +1072,79 @@ export default function SummaryViewer() {
                 </CardContent>
               </Card>
             </motion.div>
+
+            {/* Medical References Section - Hidden as references are shown inline with findings/recommendations */}
+            {/* The medical literature citations appear as badges under each finding and recommendation */}
+            {false && summary.sources && summary.sources.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.6 }}
+              >
+                <Card className="backdrop-blur-xl bg-card/40 border-accent/20 shadow-2xl overflow-hidden">
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-gradient-to-br from-accent/20 to-accent/5">
+                        <svg className="h-5 w-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                        </svg>
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl">Sources & References</CardTitle>
+                        <CardDescription>Medical reports and context used for analysis</CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {summary.sources.map((source, i) => (
+                        <motion.div
+                          key={i}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          className="group p-4 rounded-lg border border-border/50 bg-gradient-to-r from-muted/20 to-transparent hover:border-accent/50 hover:shadow-md transition-all duration-300"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant={source.type === 'current_report' ? 'default' : 'secondary'} className="text-xs">
+                                  {source.type === 'current_report' ? '📄 Current Report' : '🔗 Similar Case'}
+                                </Badge>
+                                {source.relevance && source.relevance < 1 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    {(source.relevance * 100).toFixed(0)}% relevant
+                                  </Badge>
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-medium text-sm">{source.patient_name}</p>
+                                {source.report_type && (
+                                  <p className="text-xs text-muted-foreground capitalize">{source.report_type} Report</p>
+                                )}
+                                {source.file_name && (
+                                  <p className="text-xs text-muted-foreground mt-1">{source.file_name}</p>
+                                )}
+                              </div>
+                              {source.snippet && (
+                                <p className="text-xs text-muted-foreground italic line-clamp-2 mt-2 pl-3 border-l-2 border-muted">
+                                  {source.snippet}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
           </>
         )}
       </div>
+    </div>
     </div>
   );
 }

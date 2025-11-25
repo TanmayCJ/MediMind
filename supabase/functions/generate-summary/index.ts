@@ -72,7 +72,7 @@ async function retrieveContext(
   query: string, 
   supabaseClient: any,
   geminiApiKey: string
-): Promise<string> {
+): Promise<{ context: string; sources: any[] }> {
   // Generate embedding for the query using Gemini
   const queryEmbedding = await generateGeminiEmbedding(query, geminiApiKey);
 
@@ -86,19 +86,49 @@ async function retrieveContext(
 
   if (error) {
     console.error('Error searching chunks:', error);
-    return '';
+    return { context: '', sources: [] };
   }
 
   if (!chunks || chunks.length === 0) {
-    return '';
+    return { context: '', sources: [] };
   }
 
-  // Combine retrieved chunks into context
+  // Get report details for source citations
+  const reportIds = [...new Set(chunks.map((c: any) => c.report_id))];
+  const { data: sourceReports } = await supabaseClient
+    .from('reports')
+    .select('id, patient_name, report_type, file_name')
+    .in('id', reportIds);
+
+  const reportMap = new Map(sourceReports?.map((r: any) => [r.id, r]) || []);
+
+  // Build sources array with metadata
+  const sources = chunks.map((chunk: any, idx: number) => {
+    const report = reportMap.get(chunk.report_id);
+    return {
+      type: chunk.report_id === reportId ? 'current_report' : 'similar_report',
+      report_id: chunk.report_id,
+      patient_name: report?.patient_name || 'Unknown',
+      report_type: report?.report_type || 'unknown',
+      file_name: report?.file_name || 'Unknown',
+      relevance: chunk.similarity,
+      snippet: chunk.content.substring(0, 200) + '...',
+      chunk_index: chunk.chunk_index
+    };
+  });
+
+  // Combine retrieved chunks into context with source labels
   const context = chunks
-    .map((chunk: any, idx: number) => `[Chunk ${idx + 1} - Relevance: ${(chunk.similarity * 100).toFixed(1)}%]\n${chunk.content}`)
+    .map((chunk: any, idx: number) => {
+      const report = reportMap.get(chunk.report_id);
+      const sourceLabel = chunk.report_id === reportId 
+        ? 'Current Report' 
+        : `Similar Case: ${report?.patient_name || 'Unknown'} (${report?.report_type || 'unknown'})`;
+      return `[Source ${idx + 1}: ${sourceLabel} - Relevance: ${(chunk.similarity * 100).toFixed(1)}%]\n${chunk.content}`;
+    })
     .join('\n\n');
 
-  return context;
+  return { context, sources };
 }
 
 // Function to parse Gemini's text response into structured data
@@ -110,7 +140,7 @@ function parseGeminiResponse(text: string): any {
     const recommendations: string[] = [];
     
     // Extract key findings (look for bullet points or numbered lists)
-    const findingsMatch = text.match(/key findings?:?\s*([\s\S]*?)(?=step-by-step|reasoning|recommendations|$)/i);
+    const findingsMatch = text.match(/key findings?:?\s*([\s\S]*?)(?=chain-of-thought|step-by-step|reasoning|recommendations|$)/i);
     if (findingsMatch) {
       const findingsText = findingsMatch[1];
       const findings = findingsText.split(/\n/).filter(line => line.trim().match(/^[-•*\d.]/));
@@ -120,15 +150,27 @@ function parseGeminiResponse(text: string): any {
       });
     }
     
-    // Extract reasoning steps
-    const reasoningMatch = text.match(/(?:step-by-step|reasoning):?\s*([\s\S]*?)(?=recommendations|$)/i);
+    // Extract reasoning steps - improved to handle **Step X:** format
+    const reasoningMatch = text.match(/(?:chain-of-thought|step-by-step|reasoning).*?analysis?:?\s*([\s\S]*?)(?=clinical recommendations|recommendations|complete summary|$)/i);
     if (reasoningMatch) {
       const reasoningText = reasoningMatch[1];
-      const steps = reasoningText.split(/\n/).filter(line => line.trim().match(/^[-•*\d.]/));
-      steps.forEach((step, idx) => {
-        const cleaned = step.replace(/^[-•*\d.)\s]+/, '').trim();
-        if (cleaned) reasoningSteps[`Step ${idx + 1}`] = cleaned;
-      });
+      // Try to match **Step X: Title** followed by content
+      const stepMatches = Array.from(reasoningText.matchAll(/\*\*Step\s+(\d+):\s*([^*\n]+?)\*\*\s*([\s\S]*?)(?=\*\*Step|\*\*CLINICAL|\*\*COMPLETE|$)/gi));
+      if (stepMatches.length > 0) {
+        stepMatches.forEach(match => {
+          const stepNum = match[1];
+          const stepTitle = match[2].trim();
+          const stepContent = match[3].trim();
+          reasoningSteps[`Step ${stepNum}`] = stepContent || stepTitle;
+        });
+      } else {
+        // Fallback: look for lines starting with Step
+        const stepLines = reasoningText.split(/\n/).filter(line => line.trim().match(/^(?:step\s*\d+|\d+\.)/i));
+        stepLines.forEach((line, idx) => {
+          const cleaned = line.replace(/^(?:step\s*\d+[.:]?|\d+\.?)\s*/i, '').trim();
+          if (cleaned.length > 10) reasoningSteps[`Step ${idx + 1}`] = cleaned;
+        });
+      }
     }
     
     // Extract recommendations
@@ -173,7 +215,20 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    // Support multiple Gemini API keys for quota rotation
+    const GEMINI_API_KEYS = [
+      Deno.env.get('GEMINI_API_KEY'),
+      Deno.env.get('GEMINI_API_KEY_2'),
+      Deno.env.get('GEMINI_API_KEY_3'),
+    ].filter(key => key); // Remove undefined keys
+    
+    if (GEMINI_API_KEYS.length === 0) {
+      console.error('❌ No GEMINI_API_KEY found in environment variables');
+      throw new Error('GEMINI_API_KEY not configured. Please add it to Supabase secrets.');
+    }
+    
+    const GEMINI_API_KEY = GEMINI_API_KEYS[Math.floor(Math.random() * GEMINI_API_KEYS.length)];
+    console.log(`✅ Using Gemini API key (${GEMINI_API_KEY.substring(0, 10)}...)`);
     const HUGGINGFACE_API_KEY = Deno.env.get('HUGGINGFACE_API_KEY');
     
     // Fetch report details
@@ -218,12 +273,16 @@ serve(async (req) => {
 
     // Try to retrieve context using RAG if Gemini key is available
     let retrievedContext = '';
+    let ragSources: any[] = [];
     if (GEMINI_API_KEY) {
       try {
         console.log('🚀 RAG ENABLED: Using Gemini vector embeddings for context retrieval');
         const query = `Analyze ${report.report_type} report findings, key observations, and clinical significance`;
-        retrievedContext = await retrieveContext(reportId, query, supabaseClient, GEMINI_API_KEY);
+        const ragResult = await retrieveContext(reportId, query, supabaseClient, GEMINI_API_KEY);
+        retrievedContext = ragResult.context;
+        ragSources = ragResult.sources;
         console.log('✅ Retrieved context length:', retrievedContext.length);
+        console.log('✅ Found', ragSources.length, 'source references');
       } catch (error) {
         console.error('⚠️ RAG failed, continuing without context:', error);
       }
@@ -288,17 +347,35 @@ File: ${report.file_name}`;
       console.log('✅ Enhanced with HuggingFace medical model insights');
     }
 
-    userPrompt += `\n\nProvide your analysis in the following format:
+    userPrompt += `\n\nIMPORTANT CITATION REQUIREMENTS:
+- For each finding and recommendation, cite established medical sources
+- Use format: (Ref: Journal/Guideline name or medical standard)
+- Examples: (Ref: ACR Guidelines), (Ref: Radiology journal standard), (Ref: WHO criteria)
+- Reference established medical literature, clinical guidelines, or diagnostic standards
+- Do NOT cite the patient's report as a source - cite the medical knowledge/standards instead
+
+Provide your analysis in the following format:
 
 **KEY CLINICAL FINDINGS:**
-- [Finding 1: Complete, specific observation with measurements/details]
-- [Finding 2: Clear statement about another significant finding]
-- [Finding 3-5: Additional critical findings]
+- [Finding 1: Complete, specific observation with measurements/details] (Ref: Medical source)
+- [Finding 2: Clear statement about another significant finding] (Ref: Medical source)
+- [Finding 3-5: Additional critical findings with medical citations]
 
 **CHAIN-OF-THOUGHT ANALYSIS:**
+**Step 1: Initial Assessment**
+[Your reasoning about what you first observe]
+
+**Step 2: Differential Diagnosis**
+[Your reasoning about possible diagnoses]
+
+**Step 3: Clinical Correlation**
+[Your reasoning about correlating findings]
+
+**Step 4: Risk Assessment**
+[Your reasoning about severity and urgency]
 
 Step 1: Clinical Data Review
-[Explain what information you gathered from the report and how it relates to the patient's presentation]
+[Explain what information you gathered from the report and how it relates to the patient's presentation. Cite sources.]
 
 Step 2: Diagnostic Interpretation
 [Describe how you interpreted the findings, what they indicate, and why]
@@ -324,9 +401,9 @@ Remember: Be specific, professional, and clinically accurate. Each statement sho
       throw new Error('GEMINI_API_KEY not configured. Please add it to Supabase secrets.');
     }
 
-    console.log('🤖 Using Google Gemini 2.0 Flash for analysis');
+    console.log('🤖 Using Google Gemini 2.5 Flash for analysis');
     
-    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`, {
+    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -341,7 +418,12 @@ Remember: Be specific, professional, and clinically accurate. Each statement sho
           temperature: 0.7,
           topK: 40,
           topP: 0.95,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 16384,  // Increased to handle Gemini 2.5's thinking tokens
+        },
+        systemInstruction: {
+          parts: [{
+            text: "Respond directly without extended thinking. Provide structured medical analysis immediately."
+          }]
         }
       }),
     });
@@ -362,7 +444,20 @@ Remember: Be specific, professional, and clinically accurate. Each statement sho
     // Gemini will return formatted text, so we'll parse it
     const analysisData = parseGeminiResponse(generatedText);
 
-    // Store summary in database
+    // Prepare source citations
+    const allSources = [
+      {
+        type: 'current_report',
+        report_id: reportId,
+        patient_name: report.patient_name,
+        report_type: report.report_type,
+        file_name: report.file_name,
+        relevance: 1.0
+      },
+      ...ragSources
+    ];
+
+    // Store summary in database with sources
     const { error: summaryError } = await supabaseClient
       .from('summaries')
       .upsert({
@@ -371,6 +466,8 @@ Remember: Be specific, professional, and clinically accurate. Each statement sho
         reasoning_steps: analysisData.reasoning_steps,
         recommendations: analysisData.recommendations,
         full_summary: analysisData.full_summary,
+        sources: allSources,
+        rag_context_used: ragSources.map((s: any) => s.report_id),
       });
 
     if (summaryError) {

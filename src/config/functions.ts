@@ -3,5 +3,5 @@
 
 export const EDGE_FUNCTIONS = {
   PROCESS_DOCUMENT: 'process-document',
-  GENERATE_SUMMARY: 'generate-summary-new', // This is the ONLY function that exists
+  GENERATE_SUMMARY: 'generate-summary',
 } as const;

@@ -2,18 +2,17 @@
 
 # 🏥 MediMind AI
 
-### AI-Powered Medical Report Analysis with RAG & Vector Embeddings
+### AI-Powered Medical Report Analysis Platform
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
-[![Google Gemini](https://img.shields.io/badge/Google%20Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
-[![HuggingFace](https://img.shields.io/badge/HuggingFace-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)](https://huggingface.co/)
+[![Google Gemini](https://img.shields.io/badge/Google%20Gemini%202.5-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
 
-**An intelligent medical report summarization system leveraging Machine Learning through vector embeddings, RAG (Retrieval-Augmented Generation), and medical-domain pre-trained models.**
+**An intelligent medical diagnostic assistant powered by Google Gemini 2.5 Flash, featuring RAG (Retrieval-Augmented Generation), vector embeddings, and Chain-of-Thought reasoning for comprehensive medical report analysis.**
 
-🌐 **[Live Demo](https://medimind-alpha.web.app)** | 📚 [Documentation](#-documentation) | 🚀 [Getting Started](#-getting-started)
+🌐 **[Live Demo](https://medimind-alpha.web.app)** | 📚 [Documentation](#-features) | 🚀 [Getting Started](#-getting-started)
 
 ---
 
@@ -32,16 +31,18 @@
 - ✅ **Real-time Processing** - Instant AI analysis
 - ✅ **Mobile Responsive** - Works on all devices
 
-### �🎯 Key Capabilities
+### 🎯 Key Capabilities
 
 - 📄 **Upload & Process**: Medical reports (radiology, pathology, MRI, CT scans, lab reports)
-- 🧠 **RAG Pipeline**: Vector embeddings + semantic similarity search
-- 🤖 **Medical AI**: Domain-specific insights from BiomedNLP-PubMedBERT
-- 🔍 **Chain-of-Thought**: Transparent, step-by-step AI reasoning
-- 📊 **Structured Output**: Key findings, clinical reasoning, recommendations
-- 📑 **Professional PDFs**: Medical-grade report generation
-- 🔐 **HIPAA-Ready**: Secure authentication and encrypted storage
+- 🧠 **RAG Pipeline**: Vector embeddings (768-dim) + semantic similarity search with pgvector
+- 🤖 **AI Analysis**: Powered by Google Gemini 2.5 Flash with 16K token output
+- 🔍 **Chain-of-Thought**: Transparent, step-by-step diagnostic reasoning (4 stages)
+- 📖 **Medical Citations**: Evidence-based references to clinical guidelines and standards
+- 📊 **Structured Output**: Key findings, clinical reasoning, actionable recommendations
+- 📑 **Professional PDFs**: Medical-grade report generation with formatting
+- 🔐 **Secure**: Authentication via Supabase, encrypted file storage
 - 💾 **History Tracking**: Complete audit trail of all analyses
+- 🎨 **Modern UI**: Responsive design with Framer Motion animations
 
 ---
 
@@ -113,12 +114,14 @@ async function getMedicalInsights(text: string): Promise<any> {
 }
 ```
 
-#### 3. **Google Gemini 2.0 Flash** (Text Generation)
+#### 3. **Google Gemini 2.5 Flash** (Text Generation & Analysis)
 
 **What it does:**
-- Large Language Model (LLM) for summary generation
-- Combines RAG context + medical insights into coherent text
-- Generates structured findings and recommendations
+- Latest large language model (LLM) for medical summary generation
+- 16,384 token output capacity for comprehensive analysis
+- Combines RAG context + report content into structured insights
+- Generates evidence-based findings with medical literature citations
+- Chain-of-Thought reasoning across 4 diagnostic stages
 
 ---
 
