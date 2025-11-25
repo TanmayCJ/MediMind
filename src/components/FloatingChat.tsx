@@ -123,13 +123,13 @@ export default function FloatingChat({ reportId, reportContext }: FloatingChatPr
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            className="fixed bottom-6 right-6 z-50"
+            className="fixed bottom-4 right-4 md:bottom-6 md:right-6 z-50"
           >
             <Button
               onClick={() => setIsOpen(true)}
-              className="h-16 w-16 rounded-full bg-gradient-to-br from-primary via-primary/90 to-accent shadow-2xl shadow-primary/50 hover:shadow-primary/70 hover:scale-110 transition-all duration-300"
+              className="h-14 w-14 md:h-16 md:w-16 rounded-full bg-gradient-to-br from-primary via-primary/90 to-accent shadow-2xl shadow-primary/50 hover:shadow-primary/70 hover:scale-110 transition-all duration-300"
             >
-              <Bot className="h-8 w-8" />
+              <Bot className="h-7 w-7 md:h-8 md:w-8" />
             </Button>
           </motion.div>
         )}
@@ -144,11 +144,11 @@ export default function FloatingChat({ reportId, reportContext }: FloatingChatPr
               opacity: 1, 
               y: 0, 
               scale: 1,
-              height: isMinimized ? "auto" : "600px"
+              height: isMinimized ? "auto" : undefined
             }}
             exit={{ opacity: 0, y: 100, scale: 0.8 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="fixed bottom-6 right-6 w-[420px] z-50"
+            className="fixed bottom-0 right-0 left-0 md:bottom-6 md:right-6 md:left-auto w-full md:w-[420px] md:max-h-[600px] h-[100dvh] md:h-[600px] z-50"
           >
             <Card className="backdrop-blur-xl bg-card/95 border-primary/30 shadow-2xl overflow-hidden flex flex-col h-full">
               {/* Header */}
@@ -189,7 +189,7 @@ export default function FloatingChat({ reportId, reportContext }: FloatingChatPr
               {!isMinimized && (
                 <>
                   {/* Messages */}
-                  <CardContent className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[420px]">
+                  <CardContent className="flex-1 overflow-y-auto p-3 md:p-4 space-y-3 h-[calc(100dvh-180px)] md:max-h-[420px]">
                     {messages.map((message) => (
                       <motion.div
                         key={message.id}
