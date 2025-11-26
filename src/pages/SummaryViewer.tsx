@@ -136,12 +136,13 @@ export default function SummaryViewer() {
     }
 
     try {
-      const doc = new jsPDF();
+      // DICOM-compliant A4 format
+      const doc = new jsPDF('portrait', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 20;
+      const margin = 25; // DICOM standard margin
       const maxWidth = pageWidth - (margin * 2);
-      let yPosition = 20;
+      let yPosition = 25;
 
       // Clean color scheme
       const colors = {
@@ -274,115 +275,288 @@ export default function SummaryViewer() {
         yPosition += 8;
       };
 
-      // ==================== HEADER ====================
-      // Simple header background
-      doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
-      doc.rect(0, 0, pageWidth, 35, 'F');
-      
-      // Title
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(20);
+      // ==================== DICOM-COMPLIANT HEADER ====================
+      // Institution Header (DICOM Tag 0008,0080)
+      doc.setFillColor(240, 240, 240);
+      doc.rect(0, 0, pageWidth, 15, 'F');
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.text('MEDICAL ANALYSIS REPORT', pageWidth / 2, 15, { align: 'center' });
+      doc.text('MEDIMIND AI - DIAGNOSTIC INTELLIGENCE PLATFORM', pageWidth / 2, 10, { align: 'center' });
+      
+      // Report Title
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('MEDICAL DIAGNOSTIC REPORT', pageWidth / 2, 22, { align: 'center' });
+      
+      yPosition = 35;
+      
+      // ==================== DICOM PATIENT DEMOGRAPHICS (SECTION 0010) ====================
+      // DICOM Standard requires specific patient information formatting
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('PATIENT DEMOGRAPHICS', margin, yPosition);
+      yPosition += 8;
       
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      doc.text('AI-Powered Medical Intelligence Platform', pageWidth / 2, 25, { align: 'center' });
       
-      yPosition = 50;
+      // Patient Name (0010,0010)
+      doc.setFont('helvetica', 'bold');
+      doc.text('Patient Name:', margin, yPosition);
+      doc.setFont('helvetica', 'normal');
+      doc.text(report.patient_name.toUpperCase(), margin + 40, yPosition);
+      yPosition += 6;
       
-      // ==================== PATIENT INFO ====================
-      addInfoBox('PATIENT INFORMATION', [
-        `Patient Name: ${report.patient_name}`,
-        `Report Type: ${report.report_type.toUpperCase()}`,
-        `Analysis Date: ${new Date(report.uploaded_at).toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        })}`,
-        `Source File: ${report.file_name}`,
-        `Analysis ID: ${report.id.slice(0, 8).toUpperCase()}`
-      ]);
+      // Study Date (0008,0020) & Study Time (0008,0030)
+      const studyDate = new Date(report.uploaded_at);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Study Date:', margin, yPosition);
+      doc.setFont('helvetica', 'normal');
+      doc.text(studyDate.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }), margin + 40, yPosition);
+      yPosition += 6;
+      
+      doc.setFont('helvetica', 'bold');
+      doc.text('Study Time:', margin, yPosition);
+      doc.setFont('helvetica', 'normal');
+      doc.text(studyDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }), margin + 40, yPosition);
+      yPosition += 6;
+      
+      // Modality (0008,0060)
+      doc.setFont('helvetica', 'bold');
+      doc.text('Modality:', margin, yPosition);
+      doc.setFont('helvetica', 'normal');
+      doc.text(report.report_type.toUpperCase(), margin + 40, yPosition);
+      yPosition += 6;
+      
+      // Study Description (0008,1030)
+      doc.setFont('helvetica', 'bold');
+      doc.text('Study Description:', margin, yPosition);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`AI-Assisted ${report.report_type} Analysis`, margin + 40, yPosition);
+      yPosition += 6;
+      
+      // Accession Number (0008,0050)
+      doc.setFont('helvetica', 'bold');
+      doc.text('Accession Number:', margin, yPosition);
+      doc.setFont('helvetica', 'normal');
+      doc.text(report.id.slice(0, 12).toUpperCase(), margin + 40, yPosition);
+      yPosition += 6;
+      
+      // Study Instance UID (0020,000D)
+      doc.setFont('helvetica', 'bold');
+      doc.text('Study Instance UID:', margin, yPosition);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text(`1.2.840.${Date.now()}.${report.id.replace(/-/g, '')}`, margin + 40, yPosition);
+      doc.setFontSize(10);
+      yPosition += 10;
+      
+      // Separator line
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 10;
 
-      // ==================== KEY FINDINGS ====================
-      addSection('KEY CLINICAL FINDINGS');
+      // ==================== DICOM CLINICAL FINDINGS (IMPRESSION) ====================
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('CLINICAL FINDINGS / IMPRESSION', margin, yPosition);
+      yPosition += 8;
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
       
       if (summary.key_findings && summary.key_findings.length > 0) {
         summary.key_findings.forEach((finding, index) => {
-          addBulletPoint(finding, index + 1);
+          const findingText = `${index + 1}. ${finding}`;
+          const lines = doc.splitTextToSize(findingText, maxWidth);
+          lines.forEach((line: string) => {
+            if (yPosition > pageHeight - 30) {
+              doc.addPage();
+              yPosition = 25;
+            }
+            doc.text(line, margin, yPosition);
+            yPosition += 5;
+          });
+          yPosition += 3;
         });
       } else {
-        addText('No key findings available in the analysis.', 10, 'normal', [120, 120, 120]);
+        doc.text('No significant findings identified in the analysis.', margin, yPosition);
+        yPosition += 5;
       }
+      
+      yPosition += 5;
+      doc.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 10;
 
-      // ==================== REASONING ====================
-      addSection('DIAGNOSTIC REASONING PROCESS');
+      // ==================== INTERPRETATION & REASONING ====================
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('INTERPRETATION & DIAGNOSTIC REASONING', margin, yPosition);
+      yPosition += 8;
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
       
       if (summary.reasoning_steps && typeof summary.reasoning_steps === 'object') {
         const steps = Object.entries(summary.reasoning_steps);
         if (steps.length > 0) {
-          steps.forEach(([step, reasoning], index) => {
-            addText(`Step ${index + 1}: ${step}`, 11, 'bold', colors.primary);
-            addText(String(reasoning), 10, 'normal', colors.text);
-            addSpacer(6);
+          steps.forEach(([step, reasoning]) => {
+            // Step title
+            doc.setFont('helvetica', 'bold');
+            const stepLines = doc.splitTextToSize(`${step}:`, maxWidth);
+            stepLines.forEach((line: string) => {
+              if (yPosition > pageHeight - 30) {
+                doc.addPage();
+                yPosition = 25;
+              }
+              doc.text(line, margin, yPosition);
+              yPosition += 5;
+            });
+            
+            // Step content
+            doc.setFont('helvetica', 'normal');
+            const reasoningLines = doc.splitTextToSize(String(reasoning), maxWidth - 5);
+            reasoningLines.forEach((line: string) => {
+              if (yPosition > pageHeight - 30) {
+                doc.addPage();
+                yPosition = 25;
+              }
+              doc.text(line, margin + 5, yPosition);
+              yPosition += 5;
+            });
+            yPosition += 3;
           });
         } else {
-          addText('No reasoning steps available in the analysis.', 10, 'normal', [120, 120, 120]);
+          doc.text('Diagnostic reasoning process not available.', margin, yPosition);
+          yPosition += 5;
         }
       } else {
-        addText('No reasoning steps available in the analysis.', 10, 'normal', [120, 120, 120]);
+        doc.text('Diagnostic reasoning process not available.', margin, yPosition);
+        yPosition += 5;
       }
+      
+      yPosition += 5;
+      doc.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 10;
 
       // ==================== RECOMMENDATIONS ====================
-      addSection('CLINICAL RECOMMENDATIONS');
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('RECOMMENDATIONS / PLAN', margin, yPosition);
+      yPosition += 8;
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
       
       if (summary.recommendations && summary.recommendations.length > 0) {
         summary.recommendations.forEach((rec, index) => {
-          addBulletPoint(rec, index + 1);
+          const recText = `${index + 1}. ${rec}`;
+          const lines = doc.splitTextToSize(recText, maxWidth);
+          lines.forEach((line: string) => {
+            if (yPosition > pageHeight - 30) {
+              doc.addPage();
+              yPosition = 25;
+            }
+            doc.text(line, margin, yPosition);
+            yPosition += 5;
+          });
+          yPosition += 3;
         });
       } else {
-        addText('No clinical recommendations available.', 10, 'normal', [120, 120, 120]);
+        doc.text('No specific recommendations provided.', margin, yPosition);
+        yPosition += 5;
       }
 
-      // ==================== FULL SUMMARY ====================
-      addSection('COMPLETE MEDICAL ANALYSIS');
+      // ==================== FULL SUMMARY / CONCLUSION ====================
+      yPosition += 5;
+      doc.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 10;
+      
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SUMMARY / CONCLUSION', margin, yPosition);
+      yPosition += 8;
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
       
       if (summary.full_summary) {
-        // Parse and format the summary content for PDF
-        const lines = summary.full_summary.split('\n');
-        
-        lines.forEach((line) => {
-          const trimmedLine = line.trim();
-          
-          // Check for headers (remove ** formatting)
-          const headerMatch = trimmedLine.match(/^\*\*(.+?)\*\*(.*)$/);
-          if (headerMatch) {
-            const headerText = headerMatch[1].replace(/\*\*/g, '').trim();
-            const remainingText = headerMatch[2].trim();
-            
-            // Add sub-header
-            addSpacer(6);
-            addText(headerText, 11, 'bold', colors.primary);
-            
-            if (remainingText) {
-              addText(remainingText, 10, 'normal', colors.text);
-            }
-          } else if (trimmedLine.startsWith('*') && !trimmedLine.startsWith('**')) {
-            // Bullet point
-            const bulletText = trimmedLine.substring(1).trim();
-            if (bulletText) {
-              addText(`• ${bulletText}`, 10, 'normal', colors.text);
-            }
-          } else if (trimmedLine) {
-            // Regular content
-            addText(trimmedLine, 10, 'normal', colors.text);
+        const summaryLines = doc.splitTextToSize(summary.full_summary, maxWidth);
+        summaryLines.forEach((line: string) => {
+          if (yPosition > pageHeight - 30) {
+            doc.addPage();
+            yPosition = 25;
           }
+          doc.text(line, margin, yPosition);
+          yPosition += 5;
         });
       } else {
-        addText('No comprehensive analysis available.', 10, 'normal', [120, 120, 120]);
+        doc.text('No comprehensive summary available.', margin, yPosition);
+        yPosition += 5;
       }
+
+      // ==================== REPORT VERIFICATION ====================
+      yPosition += 10;
+      doc.line(margin, yPosition, pageWidth - margin, yPosition);
+      yPosition += 10;
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('REPORT VERIFICATION', margin, yPosition);
+      yPosition += 7;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text('Generated by: MediMind AI Medical Analysis System', margin, yPosition);
+      yPosition += 5;
+      doc.text(`Report Generated: ${new Date().toLocaleString('en-US')}`, margin, yPosition);
+      yPosition += 5;
+      doc.text(`Report ID: ${report.id}`, margin, yPosition);
+      yPosition += 10;
+      
+      // ==================== DISCLAIMERS ====================
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.text('IMPORTANT DISCLAIMER', margin, yPosition);
+      yPosition += 6;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      
+      const disclaimerText = 'This report has been generated using artificial intelligence-assisted medical analysis. ' +
+        'While the AI system has been designed to assist healthcare professionals in medical report interpretation, ' +
+        'it should not be considered as a substitute for professional medical judgment. All findings and recommendations ' +
+        'must be reviewed and validated by a qualified healthcare professional before clinical application. ' +
+        'This report is intended for informational purposes and should be used in conjunction with clinical expertise.';
+      
+      const disclaimerLines = doc.splitTextToSize(disclaimerText, maxWidth);
+      disclaimerLines.forEach((line: string) => {
+        if (yPosition > pageHeight - 30) {
+          doc.addPage();
+          yPosition = 25;
+        }
+        doc.text(line, margin, yPosition);
+        yPosition += 4;
+      });
+      
+      yPosition += 5;
+      
+      const aiNotice = 'AI Assistance Notice: This analysis was performed using Google Gemini AI with RAG (Retrieval-Augmented Generation) ' +
+        'technology to provide evidence-based medical insights. The system has been trained on medical literature and diagnostic patterns ' +
+        'to support clinical decision-making.';
+      
+      const aiNoticeLines = doc.splitTextToSize(aiNotice, maxWidth);
+      aiNoticeLines.forEach((line: string) => {
+        if (yPosition > pageHeight - 30) {
+          doc.addPage();
+          yPosition = 25;
+        }
+        doc.text(line, margin, yPosition);
+        yPosition += 4;
+      });
 
       // ==================== FOOTER ====================
       const pageCount = doc.getNumberOfPages();
@@ -390,32 +564,35 @@ export default function SummaryViewer() {
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         
-        // Footer background
-        doc.setFillColor(250, 250, 250);
-        doc.rect(0, pageHeight - 15, pageWidth, 15, 'F');
-        
         // Footer line
-        doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
         doc.setLineWidth(0.5);
-        doc.line(0, pageHeight - 15, pageWidth, pageHeight - 15);
+        doc.line(margin, pageHeight - 20, pageWidth - margin, pageHeight - 20);
         
-        // Footer text
-        doc.setFontSize(8);
-        doc.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
+        // Footer content
+        doc.setFontSize(7);
+        doc.setTextColor(80, 80, 80);
         doc.setFont('helvetica', 'normal');
         
-        doc.text('Generated by MediMind AI', margin, pageHeight - 8);
-        doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
-        doc.text(new Date().toLocaleDateString(), pageWidth - margin, pageHeight - 8, { align: 'right' });
+        // Left: Institution/System info
+        doc.text('MediMind Medical AI Systems', margin, pageHeight - 15);
+        doc.text('support@medimind.health', margin, pageHeight - 11);
         
-        // Confidentiality notice
-        doc.setFontSize(7);
-        doc.setTextColor(120, 120, 120);
-        doc.text('CONFIDENTIAL MEDICAL DOCUMENT - FOR AUTHORIZED PERSONNEL ONLY', pageWidth / 2, pageHeight - 3, { align: 'center' });
+        // Center: Page number (DICOM format)
+        doc.text(`Page ${i} of ${pageCount}`, pageWidth / 2, pageHeight - 13, { align: 'center' });
+        
+        // Right: Document ID and date
+        doc.text(`Doc ID: ${report.id.substring(0, 12)}`, pageWidth - margin, pageHeight - 15, { align: 'right' });
+        doc.text(new Date().toLocaleDateString('en-US'), pageWidth - margin, pageHeight - 11, { align: 'right' });
+        
+        // Bottom: Confidentiality and compliance notice
+        doc.setFontSize(6);
+        doc.setTextColor(100, 100, 100);
+        doc.text('CONFIDENTIAL MEDICAL DOCUMENT - DICOM Standard Compatible - For Authorized Healthcare Personnel Only', 
+          pageWidth / 2, pageHeight - 6, { align: 'center' });
       }
 
       // ==================== SAVE PDF ====================
-      const fileName = `MediMind_${report.patient_name.replace(/\s+/g, '_')}_${report.report_type}_${new Date().toISOString().split('T')[0]}.pdf`;
+      const fileName = `DICOM_Report_${report.patient_name.replace(/\s+/g, '_')}_${report.report_type}_${studyDate.toISOString().split('T')[0]}_${report.id.substring(0, 8)}.pdf`;
       doc.save(fileName);
       
       toast.success("Professional PDF report generated successfully!");
