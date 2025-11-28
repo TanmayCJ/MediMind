@@ -10,7 +10,7 @@
 [![Google Gemini](https://img.shields.io/badge/Google%20Gemini%202.5-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)](https://firebase.google.com/)
 
-**An intelligent medical diagnostic assistant powered by Google Gemini 2.5 Flash, featuring RAG (Retrieval-Augmented Generation), vector embeddings, and Chain-of-Thought reasoning for comprehensive medical report analysis.**
+**An intelligent medical diagnostic assistant powered by Google Gemini 2.5 Flash, featuring RAG (Retrieval-Augmented Generation), 768-dimensional vector embeddings, Chain-of-Thought reasoning, and DICOM-compliant PDF reports for comprehensive medical report analysis.**
 
 🌐 **[Live Demo](https://medimind-alpha.web.app)** | 📚 [Documentation](#-features) | 🚀 [Getting Started](#-getting-started)
 
@@ -34,17 +34,19 @@
 ### 🎯 Key Capabilities
 
 - 📄 **Upload & Process**: Medical reports (radiology, pathology, MRI, CT scans, lab reports)
-- 🧠 **RAG Pipeline**: Vector embeddings (768-dim) + semantic similarity search with pgvector
+- 🧠 **RAG Pipeline**: 768-dimensional vector embeddings + semantic similarity search with pgvector
 - 🤖 **AI Analysis**: Powered by Google Gemini 2.5 Flash with 16K token output
-- 💬 **Floating AI Assistant**: Context-aware chatbot on every report with conversational AI
+- 💬 **Floating AI Assistant**: Context-aware chatbot on every report page with conversational AI
 - 🔍 **Chain-of-Thought**: Transparent, step-by-step diagnostic reasoning (4 stages)
 - 📖 **Medical Citations**: Evidence-based references to clinical guidelines and standards
 - 📊 **Structured Output**: Key findings, clinical reasoning, actionable recommendations
-- 📑 **Professional PDFs**: Medical-grade report generation with formatting
+- 🏥 **DICOM-Standard PDFs**: Official medical reports with DICOM tags and compliance
+- 📑 **Professional Reports**: Medical-grade formatting with patient demographics, findings, and disclaimers
 - 🔐 **Secure**: Authentication via Supabase, encrypted file storage
-- 💾 **History Tracking**: Complete audit trail of all analyses
-- 🎨 **Modern UI**: Responsive design with Framer Motion animations
+- 💾 **History Tracking**: Complete audit trail of all analyses (2000+ reports supported)
+- 🎨 **Modern UI**: Responsive design with mobile hamburger menu and smooth animations
 - 🧭 **Platform Navigation**: AI helps users navigate the application
+- 📱 **Mobile Optimized**: Full-screen chat on mobile, floating on desktop
 
 ---
 
@@ -124,6 +126,8 @@ async function getMedicalInsights(text: string): Promise<any> {
 - Combines RAG context + report content into structured insights
 - Generates evidence-based findings with medical literature citations
 - Chain-of-Thought reasoning across 4 diagnostic stages
+- Powers floating AI assistant for real-time conversational support
+- Generates DICOM-compliant medical reports with proper formatting
 
 ---
 
@@ -234,7 +238,7 @@ Provide a structured medical summary with:
 3. Clinical Recommendations
 `;
 
-// 5. GENERATE final summary using Gemini 2.0
+// 5. GENERATE final summary using Gemini 2.5 Flash
 const summary = await gemini.generateContent(prompt);
 ```
 
@@ -284,7 +288,7 @@ Use pre-trained models → Fine-tune with prompts → Inference
            ↓
 📊 Retrieved Context + Medical Insights
            ↓
-🤖 Gemini 2.0 Flash (LLM combines everything)
+🤖 Gemini 2.5 Flash (LLM combines everything)
            ↓
 📋 Structured Medical Summary with reasoning
 ```
@@ -293,20 +297,10 @@ Use pre-trained models → Fine-tune with prompts → Inference
 
 ## 🛠️ Tech Stack
 
-
-
-## 📋 Overview## 🚀 Quick Start
-
-
-
----
-
-## 🛠️ Tech Stack
-
 ### Machine Learning & AI
 - **[Google Gemini text-embedding-004](https://ai.google.dev/)** - 768-dimensional transformer embeddings
 - **[Microsoft BiomedNLP-PubMedBERT](https://huggingface.co/microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract)** - Medical domain BERT model
-- **[Google Gemini 2.0 Flash](https://ai.google.dev/)** - Large Language Model for generation
+- **[Google Gemini 2.5 Flash](https://ai.google.dev/)** - Large Language Model for generation and chat
 - **[PostgreSQL pgvector](https://github.com/pgvector/pgvector)** - Vector similarity search extension
 
 ### Frontend
@@ -339,28 +333,34 @@ Use pre-trained models → Fine-tune with prompts → Inference
 ## ✨ Features
 
 ### 🤖 AI-Powered Analysis
-- **RAG Pipeline**: Retrieves relevant context from vector database
+- **RAG Pipeline**: Retrieves relevant context from 768-dimensional vector database
 - **Medical Insights**: BiomedNLP model trained on 15M medical papers
-- **Chain-of-Thought**: Transparent step-by-step reasoning
+- **Chain-of-Thought**: Transparent step-by-step reasoning with Gemini 2.5 Flash
 - **Structured Output**: Key findings, reasoning, recommendations, full summary
 - **Floating AI Assistant**: Context-aware chatbot appears on every report page
 - **Conversational AI**: Ask questions about reports, get explanations, navigate the platform
 - **Multi-Turn Conversations**: Maintains conversation history for natural dialogue
+- **Chat Assistant Function**: Powered by Supabase Edge Functions with RAG context
 
 ### 📄 Report Management
 - **Multi-Format Support**: PDF and text files
 - **Secure Storage**: Encrypted Supabase storage
-- **Document Chunking**: Intelligent text splitting with overlap
-- **Vector Search**: Semantic similarity search for relevant context
-- **Complete History**: Track all analyzed reports
+- **Document Chunking**: Intelligent text splitting with overlap (1000 chars, 200 overlap)
+- **Vector Search**: 768-dimensional semantic similarity search for relevant context
+- **Complete History**: Track all analyzed reports (2000+ capacity)
+- **DICOM PDF Export**: Download reports in DICOM-standard format
+- **Professional Formatting**: Patient demographics, DICOM tags, medical sections
+- **Legal Compliance**: AI disclaimers, verification timestamps, institution info
 
 ### 🎨 User Experience
 - **Modern UI**: Beautiful, responsive design with shadcn/ui
 - **Real-time Updates**: Live status tracking during analysis
 - **Dark Mode**: Professional clinical environment theme
-- **Mobile Responsive**: Access from any device
-- **Intuitive Navigation**: Clean dashboard layout
-- **Floating Assistant Button**: Minimizable chat window with smooth animations
+- **Mobile Responsive**: Hamburger menu, sliding sidebar, full-screen chat on mobile
+- **Intuitive Navigation**: Clean dashboard layout with mobile-optimized menu
+- **Floating Assistant Button**: Minimizable chat window with Framer Motion animations
+- **Context-Aware Chat**: Bot icon in bottom-right corner, knows current report
+- **Adaptive Layout**: Full-screen chat on mobile, 420px floating card on desktop
 
 ### 🔐 Security & Privacy
 - **Supabase Auth**: Email/password authentication
@@ -630,7 +630,7 @@ jobs:
                          │  ┌──────────────────────────┐   │
                          │  │ Google Gemini API        │   │
                          │  │  • text-embedding-004    │   │
-                         │  │  • gemini-2.0-flash-exp  │   │
+                         │  │  • gemini-2.5-flash      │   │
                          │  └──────────────────────────┘   │
                          │  ┌──────────────────────────┐   │
                          │  │ HuggingFace API          │   │
@@ -682,7 +682,7 @@ jobs:
    - Medical insights
    - Original report
           ↓
-8. Sent to Gemini 2.0 Flash for generation
+8. Sent to Gemini 2.5 Flash for generation
           ↓
 9. Response parsed into structured format:
    - key_findings: string[]
@@ -858,15 +858,105 @@ supabase secrets set HUGGINGFACE_API_KEY=your_hf_token
 - **[Implementation Summary](./IMPLEMENTATION_SUMMARY.md)** - What was built and why
 - **[Complete Database Setup](./supabase/COMPLETE_SETUP.sql)** - SQL schema with comments
 
----### Prerequisites
+---
 
-- Node.js 18+ or Bun
+## 📝 License
 
-### 🎯 Why MediMind AI?- Supabase account
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
 
-- OpenAI API key
+### MIT License Summary
 
-- **⚡ Save Time**: Analyze lengthy medical reports in seconds- Lovable AI API key
+✅ Commercial use  
+✅ Modification  
+✅ Distribution  
+✅ Private use  
+❌ Liability  
+❌ Warranty  
+
+---
+
+## 🙏 Acknowledgments
+
+- **[Google AI](https://ai.google.dev/)** - Gemini 2.5 Flash embedding and generation models
+- **[Microsoft Research](https://www.microsoft.com/en-us/research/)** - BiomedNLP-PubMedBERT model
+- **[HuggingFace](https://huggingface.co/)** - Free inference API for medical models
+- **[Supabase](https://supabase.com/)** - Excellent open-source backend platform
+- **[pgvector](https://github.com/pgvector/pgvector)** - Vector similarity search for PostgreSQL
+- **[shadcn/ui](https://ui.shadcn.com/)** - Beautiful, accessible React components
+- **[Firebase](https://firebase.google.com/)** - Hosting and deployment platform
+- **Medical AI Research Community** - For advancing healthcare AI
+
+---
+
+## 📧 Contact & Support
+
+**Developer:** Tanmay C J  
+**Institution:** REVA University, Bangalore, India  
+**GitHub:** [@TanmayCJ](https://github.com/TanmayCJ)  
+**Email:** tannycjain@gmail.com  
+**Project:** [Med-Mind AI Core](https://github.com/TanmayCJ/med-mind-ai-core)
+
+### Support Channels
+
+- 🐛 **Bug Reports**: [GitHub Issues](https://github.com/TanmayCJ/med-mind-ai-core/issues)
+- 💡 **Feature Requests**: [GitHub Discussions](https://github.com/TanmayCJ/med-mind-ai-core/discussions)
+- 📚 **Documentation**: [Project Wiki](https://github.com/TanmayCJ/med-mind-ai-core/wiki)
+
+---
+
+## 🚨 Disclaimer
+
+**IMPORTANT MEDICAL DISCLAIMER**
+
+This application is designed for **educational and research purposes only**. It is **NOT** intended for use in clinical decision-making or as a substitute for professional medical advice, diagnosis, or treatment.
+
+### Legal Notices
+
+- ❌ **Not FDA Approved**: This software is not approved by any regulatory agency
+- ❌ **Not Diagnostic**: Do not use for diagnosing medical conditions
+- ❌ **Not Treatment Advice**: Do not use for treatment recommendations
+- ✅ **Research Only**: Suitable for academic research and learning
+- ✅ **Always Consult Professionals**: Seek advice from qualified healthcare providers
+
+### AI Limitations
+
+- AI models can make mistakes or "hallucinate" information
+- Medical context requires human expertise and clinical judgment
+- Vector embeddings may retrieve irrelevant context (768-dimensional space)
+- Pre-trained models may have biases from training data
+- Always verify AI outputs with medical literature and experts
+
+### User Responsibilities
+
+By using this application, you acknowledge that:
+
+1. You understand the AI limitations and will not rely solely on AI outputs
+2. You will verify all AI-generated content with qualified medical professionals
+3. You will not use this for clinical decision-making without expert oversight
+4. You accept full responsibility for any consequences of using this tool
+5. You will comply with all applicable laws and regulations (including DICOM standards)
+
+---
+
+## 🌟 Star History
+
+If this project helped you understand ML/AI in healthcare, please consider giving it a star! ⭐
+
+<div align="center">
+
+**Built with ❤️ for advancing AI in healthcare**
+
+---
+
+### Quick Links
+
+[🏠 Home](#-medimind-ai) • [🧬 ML Architecture](#-machine-learning-architecture) • [🚀 Get Started](#-getting-started) • [📚 Docs](#-documentation)
+
+---
+
+**© 2025 Tanmay C J • REVA University • Bangalore, India**
+
+</div>
 
 - **🎓 Enhanced Understanding**: Get clear, structured summaries of complex findings
 
