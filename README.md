@@ -763,8 +763,15 @@ docs/
 
 ### 📄 Available Reports
 
-- **[MediMind Final Report](./docs/reports/MediMind-Final-Report.docx)** - Complete project documentation
-- **[MediMind Presentation](./docs/reports/MediMind-Presentation.pptx)** - Project presentation slides
+> **Note**: Files are stored with Git LFS. Click the links below to download.
+
+- **[📄 MediMind Final Report](https://github.com/TanmayCJ/MediMind/raw/main/docs/reports/MediMind-Final-Report.docx)** - Complete project documentation (1 MB)
+- **[📊 MediMind Presentation](https://github.com/TanmayCJ/MediMind/raw/main/docs/reports/MediMind-Presentation.pptx)** - Project presentation slides (13.2 MB)
+
+**How to Access:**
+1. Click the links above for direct download
+2. Or navigate to `docs/reports/` folder in the repository
+3. Click on any file and press the "Download" button
 
 ### How to Add More Documentation
 
