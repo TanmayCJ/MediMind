@@ -28,9 +28,11 @@
 
 ### See MediMind AI in Action
 
-**[📹 Download Demo Video](https://github.com/TanmayCJ/MediMind/raw/main/docs/media/MediMind-Demo.mp4)**
+[![MediMind AI Demo](https://img.youtube.com/vi/FgMcWgBl7xU/maxresdefault.jpg)](https://youtu.be/FgMcWgBl7xU)
 
-*Video showcasing the complete workflow: report upload, AI analysis, floating chat assistant, and DICOM PDF generation.*
+**[▶️ Watch on YouTube](https://youtu.be/FgMcWgBl7xU)**
+
+*Complete workflow demonstration: report upload, AI analysis, floating chat assistant, and DICOM PDF generation.*
 
 ### 📄 Project Documentation
 
