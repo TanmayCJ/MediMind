@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="./docs/media/MediMind-Logo.jpg" alt="MediMind AI Logo" width="400"/>
+
 # 🏥 MediMind AI
 
 ### AI-Powered Medical Report Analysis Platform
