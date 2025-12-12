@@ -1,10 +1,12 @@
 <div align="center">
 
-<img src="./docs/media/MediMind-Logo.jpg" alt="MediMind AI Logo" width="400"/>
+<img src="./docs/media/MediMind-Logo.jpg" alt="MediMind AI Logo" width="300" style="border-radius: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);"/>
 
-# 🏥 MediMind AI
+<br/>
 
-### AI-Powered Medical Report Analysis Platform
+# MediMind AI
+
+<h3 style="color: #3ECF8E;">🧠 Diagnostic Intelligence Powered by AI</h3>
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
