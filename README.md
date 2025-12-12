@@ -18,6 +18,28 @@
 
 ---
 
+## 🎬 Demo Video & Documentation
+
+<div align="center">
+
+### See MediMind AI in Action
+
+**[📹 Download Demo Video](https://github.com/TanmayCJ/MediMind/raw/main/docs/media/MediMind-Demo.mp4)**
+
+*Video showcasing the complete workflow: report upload, AI analysis, floating chat assistant, and DICOM PDF generation.*
+
+### 📄 Project Documentation
+
+**[📄 MediMind Final Report](https://github.com/TanmayCJ/MediMind/raw/main/docs/reports/MediMind-Final-Report.docx)** (1 MB) - Complete project documentation
+
+**[📊 MediMind Presentation](https://github.com/TanmayCJ/MediMind/raw/main/docs/reports/MediMind-Presentation.pptx)** (13.2 MB) - Project presentation slides
+
+> **Note**: All files are stored with Git LFS. Click the links above to download.
+
+</div>
+
+---
+
 ## 📋 Table of Contents
 
 - [Overview](#overview)
