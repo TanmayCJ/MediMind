@@ -6,21 +6,25 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, ProtectedRoute } from "./lib/auth";
 import { DashboardLayout } from "./components/layout/DashboardLayout";
 import { LenisProvider } from "./components/providers/LenisProvider";
+import { ThemeProvider } from "./components/providers/ThemeProvider";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import UploadReport from "./pages/UploadReport";
 import SummaryViewer from "./pages/SummaryViewer";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
+import Patients from "./pages/Patients";
+import PatientProfile from "./pages/PatientProfile";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <AuthProvider>
-        <LenisProvider>
+    <ThemeProvider>
+      <TooltipProvider>
+        <AuthProvider>
+          <LenisProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -28,6 +32,8 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/" element={<Auth />} />
               <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><Dashboard /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/patients" element={<ProtectedRoute><DashboardLayout><Patients /></DashboardLayout></ProtectedRoute>} />
+              <Route path="/patients/:patientId" element={<ProtectedRoute><DashboardLayout><PatientProfile /></DashboardLayout></ProtectedRoute>} />
               <Route path="/upload" element={<ProtectedRoute><DashboardLayout><UploadReport /></DashboardLayout></ProtectedRoute>} />
               <Route path="/summary/:id" element={<ProtectedRoute><DashboardLayout><SummaryViewer /></DashboardLayout></ProtectedRoute>} />
               <Route path="/history" element={<ProtectedRoute><DashboardLayout><History /></DashboardLayout></ProtectedRoute>} />
@@ -36,8 +42,9 @@ const App = () => (
             </Routes>
           </BrowserRouter>
         </LenisProvider>
-      </AuthProvider>
-    </TooltipProvider>
+        </AuthProvider>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

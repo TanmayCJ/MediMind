@@ -48,7 +48,7 @@ CREATE TABLE public.reports (
   processed_at TIMESTAMPTZ
 );
 
--- Summaries table (AI-generated analysis)
+-- Summaries table (AI-generated analysis with dual-view support)
 CREATE TABLE public.summaries (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   report_id UUID NOT NULL REFERENCES public.reports(id) ON DELETE CASCADE UNIQUE,
@@ -56,6 +56,11 @@ CREATE TABLE public.summaries (
   reasoning_steps JSONB,
   recommendations TEXT[],
   full_summary TEXT,
+  sources JSONB,
+  rag_context_used UUID[],
+  patient_summary JSONB,  -- Patient-friendly view (B2C)
+  doctor_summary JSONB,   -- Clinical professional view (B2B)
+  view_generated_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

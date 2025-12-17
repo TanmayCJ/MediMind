@@ -1,29 +1,45 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileText, Loader2, Check } from "lucide-react";
+import { Upload, FileText, Loader2, Check, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { EDGE_FUNCTIONS } from "@/config/functions";
 
 type ReportType = Database["public"]["Enums"]["report_type"];
 
+interface LocationState {
+  patientName?: string;
+  patientId?: string;
+}
+
 export default function UploadReport() {
-  const [patientName, setPatientName] = useState("");
-  const [patientId, setPatientId] = useState("");
+  const location = useLocation();
+  const state = location.state as LocationState | null;
+  
+  const [patientName, setPatientName] = useState(state?.patientName || "");
+  const [patientId, setPatientId] = useState(state?.patientId || "");
   const [reportType, setReportType] = useState<ReportType>("radiology");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [isFromPatientProfile, setIsFromPatientProfile] = useState(false);
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Check if coming from patient profile
+  useEffect(() => {
+    if (state?.patientName) {
+      setIsFromPatientProfile(true);
+    }
+  }, [state]);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -187,6 +203,35 @@ export default function UploadReport() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Patient indicator when coming from patient profile */}
+            {isFromPatientProfile && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6 p-4 rounded-lg bg-primary/10 border border-primary/30 flex items-center gap-3"
+              >
+                <div className="p-2 rounded-full bg-primary/20">
+                  <User className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">Adding report for existing patient</p>
+                  <p className="text-sm text-muted-foreground">{patientName} {patientId && `(ID: ${patientId})`}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsFromPatientProfile(false);
+                    setPatientName("");
+                    setPatientId("");
+                  }}
+                >
+                  Change Patient
+                </Button>
+              </motion.div>
+            )}
+
             <form onSubmit={handleUpload} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <motion.div 
@@ -202,6 +247,7 @@ export default function UploadReport() {
                     value={patientName}
                     onChange={(e) => setPatientName(e.target.value)}
                     required
+                    disabled={isFromPatientProfile}
                     className="transition-all focus:scale-[1.02]"
                   />
                 </motion.div>
@@ -217,6 +263,7 @@ export default function UploadReport() {
                     placeholder="P-12345"
                     value={patientId}
                     onChange={(e) => setPatientId(e.target.value)}
+                    disabled={isFromPatientProfile}
                     className="transition-all focus:scale-[1.02]"
                   />
                 </motion.div>

@@ -15,6 +15,8 @@ interface Message {
   timestamp: Date;
 }
 
+type ViewMode = 'patient' | 'doctor';
+
 interface FloatingChatProps {
   reportId?: string;
   reportContext?: {
@@ -22,9 +24,10 @@ interface FloatingChatProps {
     report_type: string;
     summary?: any;
   };
+  viewMode?: ViewMode;
 }
 
-export default function FloatingChat({ reportId, reportContext }: FloatingChatProps) {
+export default function FloatingChat({ reportId, reportContext, viewMode = 'patient' }: FloatingChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -35,18 +38,24 @@ export default function FloatingChat({ reportId, reportContext }: FloatingChatPr
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      // Initialize with context-aware welcome message
+      // Initialize with context-aware welcome message based on view mode
+      const patientWelcome = reportContext
+        ? `Hi there! 👋 I'm here to help you understand your ${reportContext.report_type} results. I'll explain everything in simple terms - no medical jargon! Feel free to ask me anything about ${reportContext.patient_name}'s report, like "What does this mean for my health?" or "Should I be worried?"`
+        : "Hi there! 👋 I'm your friendly health assistant. I can help you understand medical reports in simple, easy-to-understand language. Ask me anything!";
+      
+      const doctorWelcome = reportContext
+        ? `MediMind Clinical Assistant ready. Currently reviewing ${reportContext.report_type} for patient ${reportContext.patient_name}. I can provide differential diagnoses, discuss prescribing considerations, flag potential drug interactions, and cite relevant clinical guidelines. How may I assist with this case?`
+        : "MediMind Clinical Assistant ready. I can assist with clinical analysis, differential diagnoses, prescribing considerations, and evidence-based recommendations. How may I assist?";
+      
       const welcomeMessage: Message = {
         id: "welcome",
         role: "assistant",
-        content: reportContext
-          ? `Hello! I'm your AI medical assistant. I can see you're viewing the ${reportContext.report_type} for ${reportContext.patient_name}. I can help you understand the findings, explain medical terms, or answer any questions about this report. I can also guide you through the platform. What would you like to know?`
-          : "Hello! I'm your AI medical assistant. I can help you understand medical reports, explain diagnoses, guide you through the platform, and answer health-related questions. How can I assist you today?",
+        content: viewMode === 'patient' ? patientWelcome : doctorWelcome,
         timestamp: new Date(),
       };
       setMessages([welcomeMessage]);
     }
-  }, [isOpen, reportContext]);
+  }, [isOpen, reportContext, viewMode]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -77,6 +86,7 @@ export default function FloatingChat({ reportId, reportContext }: FloatingChatPr
           conversationHistory: messages.slice(-5),
           reportId: reportId,
           reportContext: reportContext,
+          viewMode: viewMode, // Pass the current view mode for context-appropriate responses
         },
       });
 

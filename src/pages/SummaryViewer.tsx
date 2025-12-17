@@ -10,6 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import jsPDF from 'jspdf';
 import FloatingChat from "@/components/FloatingChat";
+import { ViewToggle, useViewPreference, ViewModeBadge, type ViewMode } from "@/components/ui/view-toggle";
+import { PatientSummaryCard, convertToPatientSummary, type PatientSummary } from "@/components/summary/PatientSummaryCard";
+import { DoctorSummaryCard, convertToDoctorSummary, type DoctorSummary } from "@/components/summary/DoctorSummaryCard";
 
 interface Report {
   id: string;
@@ -39,6 +42,9 @@ interface Summary {
   full_summary: string;
   sources?: Source[];
   rag_context_used?: string[];
+  patient_summary?: PatientSummary;
+  doctor_summary?: DoctorSummary;
+  view_generated_at?: string;
 }
 
 export default function SummaryViewer() {
@@ -48,6 +54,7 @@ export default function SummaryViewer() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
+  const [viewMode, setViewMode] = useViewPreference();
 
   useEffect(() => {
     if (id) {
@@ -681,27 +688,32 @@ export default function SummaryViewer() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-3">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button 
-                  variant="outline" 
-                  onClick={handleRegenerate}
-                  disabled={regenerating}
-                  className="gap-2 hover:border-primary/50 hover:bg-primary/5"
-                >
-                  <RefreshCw className={`h-4 w-4 ${regenerating ? 'animate-spin' : ''}`} />
-                  Regenerate
-                </Button>
-              </motion.div>
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button 
-                  onClick={handleDownloadPDF}
-                  className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25"
-                >
-                  <Download className="h-4 w-4" />
-                  Export PDF
-                </Button>
-              </motion.div>
+            <div className="flex items-center gap-4">
+              {/* View Toggle - Patient vs Doctor */}
+              <ViewToggle value={viewMode} onChange={setViewMode} />
+              
+              <div className="flex gap-3">
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleRegenerate}
+                    disabled={regenerating}
+                    className="gap-2 hover:border-primary/50 hover:bg-primary/5"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${regenerating ? 'animate-spin' : ''}`} />
+                    Regenerate
+                  </Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button 
+                    onClick={handleDownloadPDF}
+                    className="gap-2 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export PDF
+                  </Button>
+                </motion.div>
+              </div>
             </div>
           </div>
         </motion.div>
@@ -785,19 +797,263 @@ export default function SummaryViewer() {
           </motion.div>
         ) : (
           <>
-            {/* Key Findings Card - Enhanced */}
+            {/* View Mode Badge */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+              className="flex items-center justify-between"
             >
-              <Card className="group backdrop-blur-xl bg-gradient-to-br from-card/80 via-card/60 to-card/40 border-primary/30 shadow-2xl hover:shadow-primary/20 hover:border-primary/50 transition-all duration-300 overflow-hidden">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-full blur-3xl group-hover:from-primary/15 transition-all duration-500" />
-                <CardHeader className="relative pb-4">
-                  <div className="flex items-center gap-3">
-                    <motion.div 
-                      className="p-3 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 shadow-lg shadow-primary/20"
-                      whileHover={{ scale: 1.05, rotate: 5 }}
+              <ViewModeBadge mode={viewMode} />
+              <span className="text-xs text-muted-foreground">
+                {viewMode === 'patient' 
+                  ? 'Simplified view with easy-to-understand explanations'
+                  : 'Clinical view with medical terminology and prescribing insights'}
+              </span>
+            </motion.div>
+
+            {/* Conditional View Rendering */}
+            <AnimatePresence mode="wait">
+              {viewMode === 'patient' ? (
+                <motion.div
+                  key="patient-view"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <PatientSummaryCard 
+                    summary={
+                      summary.patient_summary || 
+                      convertToPatientSummary(
+                        summary.key_findings,
+                        summary.recommendations,
+                        summary.full_summary
+                      )
+                    } 
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="doctor-view"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <DoctorSummaryCard 
+                    summary={
+                      summary.doctor_summary || 
+                      convertToDoctorSummary(
+                        summary.key_findings,
+                        summary.reasoning_steps,
+                        summary.recommendations,
+                        summary.full_summary
+                      )
+                    } 
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Simplified Analysis Sections - Only show in Patient View */}
+            {viewMode === 'patient' && (
+              <>
+                {/* What We Found - Simplified */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                >
+                  <Card className="backdrop-blur-xl bg-gradient-to-br from-blue-50/80 to-cyan-50/60 dark:from-blue-950/30 dark:to-cyan-950/20 border-blue-200/50 dark:border-blue-800/30 shadow-xl">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/10">
+                          <span className="text-2xl">🔍</span>
+                        </div>
+                        <div>
+                          <CardTitle className="text-xl font-bold text-blue-700 dark:text-blue-300">What We Found</CardTitle>
+                          <CardDescription>Here's what the scan showed, explained simply</CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {summary.key_findings?.slice(0, 4).map((finding, i) => {
+                        // Simplify the medical jargon
+                        let simpleFinding = finding
+                          .replace(/\(Ref:[^)]+\)/gi, '')
+                          .replace(/T2\/FLAIR hyperintense/gi, 'a small bright spot on the scan')
+                          .replace(/hyperintense lesion/gi, 'a small spot')
+                          .replace(/perilesional edema/gi, 'swelling around the area')
+                          .replace(/mass effect/gi, 'pressure on surrounding tissue')
+                          .replace(/post-contrast enhancement/gi, 'the area lights up with dye')
+                          .replace(/diffusion-weighted imaging \(DWI\)/gi, 'special scan images')
+                          .replace(/apparent diffusion coefficient \(ADC\)/gi, 'detailed scan measurements')
+                          .replace(/restricted diffusion/gi, 'signs of recent damage')
+                          .replace(/mucosal thickening/gi, 'slight swelling of the lining')
+                          .replace(/maxillary sinuses/gi, 'sinus cavities near your cheeks')
+                          .replace(/bilateral/gi, 'on both sides')
+                          .replace(/white matter/gi, 'brain tissue')
+                          .replace(/temporal lobe/gi, 'side part of the brain')
+                          .replace(/intracranial/gi, 'inside the head')
+                          .replace(/ventricular system/gi, 'fluid spaces in the brain')
+                          .replace(/midline structures/gi, 'center of the brain')
+                          .trim();
+                        
+                        return (
+                          <motion.div
+                            key={i}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.1 }}
+                            className="flex gap-4 p-4 rounded-xl bg-white/60 dark:bg-white/5 border border-blue-100 dark:border-blue-900/30"
+                          >
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 font-semibold text-sm">
+                              {i + 1}
+                            </div>
+                            <p className="text-sm leading-relaxed pt-1">{simpleFinding}</p>
+                          </motion.div>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+
+                {/* How We Analyzed This - Simplified Chain of Thought */}
+                {summary.reasoning_steps && Object.keys(summary.reasoning_steps).length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                  >
+                    <Card className="backdrop-blur-xl bg-gradient-to-br from-purple-50/80 to-pink-50/60 dark:from-purple-950/30 dark:to-pink-950/20 border-purple-200/50 dark:border-purple-800/30 shadow-xl">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 rounded-xl bg-gradient-to-br from-purple-500/20 to-purple-500/10">
+                            <span className="text-2xl">🧠</span>
+                          </div>
+                          <div>
+                            <CardTitle className="text-xl font-bold text-purple-700 dark:text-purple-300">How We Understood Your Results</CardTitle>
+                            <CardDescription>The thinking process behind your analysis</CardDescription>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {Object.entries(summary.reasoning_steps).slice(0, 3).map(([step, reasoning], i) => {
+                          // Simplify the reasoning
+                          let simpleReasoning = String(reasoning)
+                            .replace(/\(Ref:[^)]+\)/gi, '')
+                            .replace(/intracranial pathology/gi, 'brain problems')
+                            .replace(/increased intracranial pressure/gi, 'pressure in the head')
+                            .replace(/focal brain lesions/gi, 'specific areas of concern')
+                            .replace(/demyelination/gi, 'wear on nerve coverings')
+                            .replace(/gliosis/gi, 'scar tissue')
+                            .replace(/low-grade neoplasm/gi, 'slow-growing abnormality')
+                            .replace(/blood-brain barrier/gi, 'brain\'s protective layer')
+                            .replace(/neoplastic process/gi, 'growth')
+                            .replace(/acute infarction/gi, 'recent stroke')
+                            .replace(/differential diagnoses/gi, 'possible explanations')
+                            .replace(/gliotic focus/gi, 'small scar area')
+                            .replace(/demyelinating plaque/gi, 'area where nerve covering is affected')
+                            .replace(/multiple sclerosis/gi, 'MS (a nerve condition)')
+                            .replace(/inflammatory lesions/gi, 'areas of inflammation')
+                            .trim();
+                          
+                          // Simplify step names
+                          let simpleStep = step
+                            .replace(/Step \d+/i, `Part ${i + 1}`)
+                            .replace(/Initial Assessment/gi, 'First Look')
+                            .replace(/Imaging Analysis/gi, 'Scan Review')
+                            .replace(/Differential/gi, 'Possibilities')
+                            .replace(/Correlation/gi, 'Putting It Together');
+                          
+                          return (
+                            <motion.div
+                              key={i}
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: i * 0.15 }}
+                              className="p-4 rounded-xl bg-white/60 dark:bg-white/5 border border-purple-100 dark:border-purple-900/30"
+                            >
+                              <div className="flex items-center gap-2 mb-2">
+                                <span className="text-lg">💭</span>
+                                <h4 className="font-semibold text-purple-700 dark:text-purple-300">{simpleStep}</h4>
+                              </div>
+                              <p className="text-sm leading-relaxed text-muted-foreground">{simpleReasoning}</p>
+                            </motion.div>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+
+                {/* Simple Summary - What It All Means */}
+                {summary.full_summary && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.4 }}
+                  >
+                    <Card className="backdrop-blur-xl bg-gradient-to-br from-emerald-50/80 to-teal-50/60 dark:from-emerald-950/30 dark:to-teal-950/20 border-emerald-200/50 dark:border-emerald-800/30 shadow-xl">
+                      <CardHeader className="pb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/10">
+                            <span className="text-2xl">📋</span>
+                          </div>
+                          <div>
+                            <CardTitle className="text-xl font-bold text-emerald-700 dark:text-emerald-300">The Bottom Line</CardTitle>
+                            <CardDescription>A simple summary of everything</CardDescription>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="p-5 rounded-xl bg-white/60 dark:bg-white/5 border border-emerald-100 dark:border-emerald-900/30">
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                            {summary.full_summary
+                              .replace(/\*\*[^*]+\*\*/g, '') // Remove markdown headers
+                              .replace(/\(Ref:[^)]+\)/gi, '') // Remove references
+                              .replace(/T2\/FLAIR hyperintense/gi, 'a small spot')
+                              .replace(/hyperintense lesion/gi, 'small spot')
+                              .replace(/perilesional edema/gi, 'swelling')
+                              .replace(/mass effect/gi, 'pressure')
+                              .replace(/post-contrast enhancement/gi, 'area that shows up with dye')
+                              .replace(/demyelination/gi, 'nerve covering wear')
+                              .replace(/gliosis|gliotic/gi, 'scar tissue')
+                              .replace(/neoplasm/gi, 'growth')
+                              .replace(/bilateral/gi, 'both sides')
+                              .replace(/maxillary sinuses/gi, 'cheek sinuses')
+                              .replace(/mucosal thickening/gi, 'slight swelling')
+                              .replace(/intracranial/gi, 'in the head')
+                              .split('\n')
+                              .filter(line => line.trim().length > 10)
+                              .slice(0, 8)
+                              .join('\n\n')
+                              .trim()}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                )}
+              </>
+            )}
+
+            {/* Detailed Clinical Sections - Only show in Doctor View */}
+            {viewMode === 'doctor' && (
+              <>
+                {/* Key Clinical Findings Card */}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2 }}
+                >
+                  <Card className="group backdrop-blur-xl bg-gradient-to-br from-card/80 via-card/60 to-card/40 border-primary/30 shadow-2xl hover:shadow-primary/20 hover:border-primary/50 transition-all duration-300 overflow-hidden">
+                    <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent rounded-full blur-3xl group-hover:from-primary/15 transition-all duration-500" />
+                    <CardHeader className="relative pb-4">
+                      <div className="flex items-center gap-3">
+                        <motion.div 
+                          className="p-3 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 shadow-lg shadow-primary/20"
+                          whileHover={{ scale: 1.05, rotate: 5 }}
                     >
                       <Lightbulb className="h-6 w-6 text-primary" />
                     </motion.div>
@@ -810,7 +1066,6 @@ export default function SummaryViewer() {
                 <CardContent className="relative pt-6">
                   <div className="space-y-4">
                     {summary.key_findings?.map((finding, i) => {
-                      // Extract medical reference citations from the finding text
                       const refMatch = finding.match(/\(Ref:\s*([^)]+)\)/i);
                       const findingText = finding.replace(/\(Ref:\s*[^)]+\)/i, '').trim();
                       const medicalRefs = refMatch ? refMatch[1].split(',').map(s => s.trim()) : [];
@@ -854,7 +1109,7 @@ export default function SummaryViewer() {
               </Card>
             </motion.div>
 
-            {/* Chain of Thought Reasoning Card - Enhanced */}
+            {/* Chain of Thought Reasoning Card */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -920,7 +1175,7 @@ export default function SummaryViewer() {
               </Card>
             </motion.div>
 
-            {/* Clinical Recommendations Card - Enhanced */}
+            {/* Clinical Recommendations Card */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -945,7 +1200,6 @@ export default function SummaryViewer() {
                 <CardContent className="relative pt-6">
                   <div className="space-y-4">
                     {summary.recommendations?.map((rec, i) => {
-                      // Extract medical reference citations from recommendations
                       const refMatch = rec.match(/\(Ref:\s*([^)]+)\)/i);
                       const recText = rec.replace(/\(Ref:\s*[^)]+\)/i, '').trim();
                       const medicalRefs = refMatch ? refMatch[1].split(',').map(s => s.trim()) : [];
@@ -990,7 +1244,7 @@ export default function SummaryViewer() {
               </Card>
             </motion.div>
 
-            {/* Full Summary Card - Enhanced */}
+            {/* Full Summary Card - Complete Medical Analysis */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1025,22 +1279,15 @@ export default function SummaryViewer() {
                           lines.forEach((line, index) => {
                             const trimmedLine = line.trim();
                             
-                            // Check for main section headers (like "**2. Step-by-Step Reasoning:**" or "**Clinical Recommendations:**")
                             const mainSectionMatch = trimmedLine.match(/^\*\*(\d+\.\s*[^*:]+):?\*\*\s*$/);
-                            
-                            // Check for sub-headers (like "**1. Neurosurgical Consultation:**")
                             const subHeaderMatch = trimmedLine.match(/^\*\*(\d+\.\s*[^*]+?)\*\*(.*)$/);
-                            
-                            // Check for any other **text** pattern
                             const genericHeaderMatch = trimmedLine.match(/^\*\*([^*]+?)\*\*(.*)$/);
                             
                             if (mainSectionMatch) {
-                              // Save previous section if exists
                               if (currentSection) {
                                 parsedContent.push(currentSection);
                               }
                               
-                              // Main section header
                               let headerText = mainSectionMatch[1].trim();
                               headerText = headerText.replace(/\*\*/g, '');
                               
@@ -1053,10 +1300,9 @@ export default function SummaryViewer() {
                             } else if (subHeaderMatch || genericHeaderMatch) {
                               const match = subHeaderMatch || genericHeaderMatch;
                               
-                              // Sub-header within current section
-                              let headerText = match[1].trim();
+                              let headerText = match![1].trim();
                               headerText = headerText.replace(/\*\*/g, '');
-                              const remainingText = match[2].trim();
+                              const remainingText = match![2].trim();
                               
                               if (currentSection) {
                                 currentSection.content.push({
@@ -1065,7 +1311,6 @@ export default function SummaryViewer() {
                                   content: remainingText ? [remainingText] : []
                                 });
                               } else {
-                                // If no main section exists, create one
                                 currentSection = {
                                   type: 'section',
                                   title: headerText,
@@ -1078,7 +1323,6 @@ export default function SummaryViewer() {
                                 }
                               }
                             } else if (trimmedLine.includes('**') && trimmedLine.includes('**')) {
-                              // Additional fallback for any remaining ** patterns
                               const cleanedLine = trimmedLine.replace(/\*\*/g, '');
                               if (currentSection) {
                                 currentSection.content.push(cleanedLine);
@@ -1086,10 +1330,8 @@ export default function SummaryViewer() {
                                 parsedContent.push({ type: 'intro', text: cleanedLine });
                               }
                             } else if (trimmedLine.startsWith('*') && !trimmedLine.startsWith('**')) {
-                              // Bullet point
                               const bulletText = trimmedLine.substring(1).trim();
                               if (currentSection && bulletText) {
-                                // Add to the last sub-header if it exists, otherwise to main section
                                 const lastContent = currentSection.content[currentSection.content.length - 1];
                                 if (lastContent && typeof lastContent === 'object' && lastContent.type === 'sub-header') {
                                   lastContent.content.push({ type: 'bullet', text: bulletText });
@@ -1098,7 +1340,6 @@ export default function SummaryViewer() {
                                 }
                               }
                             } else if (trimmedLine && currentSection) {
-                              // Regular content line
                               const lastContent = currentSection.content[currentSection.content.length - 1];
                               if (lastContent && typeof lastContent === 'object' && lastContent.type === 'sub-header') {
                                 lastContent.content.push(trimmedLine);
@@ -1106,12 +1347,10 @@ export default function SummaryViewer() {
                                 currentSection.content.push(trimmedLine);
                               }
                             } else if (trimmedLine && !currentSection) {
-                              // Introduction text before any sections
                               parsedContent.push({ type: 'intro', text: trimmedLine });
                             }
                           });
                           
-                          // Add last section
                           if (currentSection) {
                             parsedContent.push(currentSection);
                           }
@@ -1128,7 +1367,6 @@ export default function SummaryViewer() {
                             } else if (item.type === 'main-section') {
                               return (
                                 <div key={index} className="space-y-4">
-                                  {/* Main Section Header - Larger and more prominent */}
                                   <div className="flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-primary/15 via-primary/10 to-accent/10 border-2 border-primary/30 shadow-lg">
                                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg">
                                       <span className="text-white font-bold text-lg">{item.number}</span>
@@ -1136,20 +1374,17 @@ export default function SummaryViewer() {
                                     <h2 className="text-xl font-bold text-primary">{item.title}</h2>
                                   </div>
                                   
-                                  {/* Main Section Content */}
                                   <div className="ml-6 space-y-3">
                                     {item.content.map((contentItem: any, contentIndex: number) => {
                                       if (typeof contentItem === 'object' && contentItem.type === 'sub-header') {
                                         return (
                                           <div key={contentIndex} className="space-y-2">
-                                            {/* Sub-header - Smaller and distinct */}
                                             <div className="flex items-center gap-3 p-3 rounded-lg bg-gradient-to-r from-accent/10 to-transparent border border-accent/20">
                                               <div className="w-6 h-6 rounded-full bg-accent/30 flex items-center justify-center">
                                                 <span className="text-accent font-semibold text-xs">•</span>
                                               </div>
                                               <h4 className="font-semibold text-accent text-base">{contentItem.title}</h4>
                                             </div>
-                                            {/* Sub-header content */}
                                             <div className="ml-8 space-y-2">
                                               {contentItem.content.map((subItem: any, subIndex: number) => {
                                                 if (typeof subItem === 'object' && subItem.type === 'bullet') {
@@ -1217,7 +1452,6 @@ export default function SummaryViewer() {
                                           </div>
                                         );
                                       } else {
-                                        // Skip objects that aren't bullet points
                                         return null;
                                       }
                                     })}
@@ -1229,7 +1463,6 @@ export default function SummaryViewer() {
                           });
                         })()}
                         
-                        {/* Fallback for completely unstructured content */}
                         {!summary.full_summary.includes('**') && (
                           <div className="p-6 rounded-lg bg-gradient-to-br from-primary/5 via-transparent to-accent/5 border border-primary/10">
                             <p className="text-sm leading-relaxed whitespace-pre-wrap">
@@ -1250,91 +1483,25 @@ export default function SummaryViewer() {
                 </CardContent>
               </Card>
             </motion.div>
-
-            {/* Medical References Section - Hidden as references are shown inline with findings/recommendations */}
-            {/* The medical literature citations appear as badges under each finding and recommendation */}
-            {false && summary.sources && summary.sources.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.6 }}
-              >
-                <Card className="backdrop-blur-xl bg-card/40 border-accent/20 shadow-2xl overflow-hidden">
-                  <CardHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-gradient-to-br from-accent/20 to-accent/5">
-                        <svg className="h-5 w-5 text-accent" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-                          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                        </svg>
-                      </div>
-                      <div>
-                        <CardTitle className="text-xl">Sources & References</CardTitle>
-                        <CardDescription>Medical reports and context used for analysis</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      {summary.sources.map((source, i) => (
-                        <motion.div
-                          key={i}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.05 }}
-                          className="group p-4 rounded-lg border border-border/50 bg-gradient-to-r from-muted/20 to-transparent hover:border-accent/50 hover:shadow-md transition-all duration-300"
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Badge variant={source.type === 'current_report' ? 'default' : 'secondary'} className="text-xs">
-                                  {source.type === 'current_report' ? '📄 Current Report' : '🔗 Similar Case'}
-                                </Badge>
-                                {source.relevance && source.relevance < 1 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {(source.relevance * 100).toFixed(0)}% relevant
-                                  </Badge>
-                                )}
-                              </div>
-                              <div>
-                                <p className="font-medium text-sm">{source.patient_name}</p>
-                                {source.report_type && (
-                                  <p className="text-xs text-muted-foreground capitalize">{source.report_type} Report</p>
-                                )}
-                                {source.file_name && (
-                                  <p className="text-xs text-muted-foreground mt-1">{source.file_name}</p>
-                                )}
-                              </div>
-                              {source.snippet && (
-                                <p className="text-xs text-muted-foreground italic line-clamp-2 mt-2 pl-3 border-l-2 border-muted">
-                                  {source.snippet}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
+              </>
             )}
           </>
         )}
       </div>
-      </div>
-
-      {/* Floating AI Assistant */}
-      {report && (
-        <FloatingChat 
-          reportId={report.id}
-          reportContext={{
-            patient_name: report.patient_name,
-            report_type: report.report_type,
-            summary: summary
-          }}
-        />
-      )}
     </div>
+
+    {/* Floating AI Assistant */}
+    {report && (
+      <FloatingChat 
+        reportId={report.id}
+        reportContext={{
+          patient_name: report.patient_name,
+          report_type: report.report_type,
+          summary: summary
+        }}
+        viewMode={viewMode}
+      />
+    )}
+  </div>
   );
 }

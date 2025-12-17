@@ -16,7 +16,8 @@ import {
   Brain,
   Sparkles,
   ArrowRight,
-  Eye
+  Eye,
+  Users
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -33,7 +34,7 @@ interface Report {
 
 export default function Dashboard() {
   const [reports, setReports] = useState<Report[]>([]);
-  const [stats, setStats] = useState({ total: 0, completed: 0, processing: 0 });
+  const [stats, setStats] = useState({ total: 0, completed: 0, processing: 0, totalPatients: 0 });
   const [loading, setLoading] = useState(true);
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
   const { user } = useAuth();
@@ -53,21 +54,34 @@ export default function Dashboard() {
 
   const fetchReports = async () => {
     try {
+      // Fetch all reports
       const { data, error } = await supabase
         .from("reports")
         .select("*")
-        .order("uploaded_at", { ascending: false })
-        .limit(5);
+        .order("uploaded_at", { ascending: false });
 
       if (error) throw error;
 
-      setReports(data || []);
+      // Fetch actual summaries count
+      const { count: summariesCount, error: summariesError } = await supabase
+        .from("summaries")
+        .select("*", { count: "exact", head: true });
+
+      if (summariesError) console.warn("Could not fetch summaries count:", summariesError);
+
+      // Calculate unique patients
+      const uniquePatients = new Set(
+        (data || []).map(r => r.patient_id || r.patient_name)
+      );
+
+      setReports((data || []).slice(0, 5));
       
-      // Calculate stats
+      // Calculate stats from actual data
       const total = data?.length || 0;
-      const completed = data?.filter(r => r.status === "completed").length || 0;
-      const processing = data?.filter(r => r.status === "processing").length || 0;
-      setStats({ total, completed, processing });
+      const completed = summariesCount || data?.filter(r => r.status === "completed").length || 0;
+      const processing = data?.filter(r => r.status === "processing" || r.status === "uploaded").length || 0;
+      const totalPatients = uniquePatients.size;
+      setStats({ total, completed, processing, totalPatients });
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -86,14 +100,8 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background via-background/95 to-background relative overflow-hidden">
-      {/* Animated Background Grid */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#4f4f4f12_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f12_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)]" />
-      
-      {/* Floating Orbs */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-primary/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob" />
-      <div className="absolute top-40 right-10 w-72 h-72 bg-accent/20 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000" />
-      <div className="absolute -bottom-8 left-1/2 w-72 h-72 bg-primary/30 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000" />
+    <div className="min-h-screen relative overflow-hidden">
+      {/* Background is now handled by DashboardLayout */}
 
       <div className="container mx-auto px-6 py-8 space-y-8 max-w-7xl relative z-10">
         {/* Hero Section - SpaceX Style */}
@@ -169,177 +177,168 @@ export default function Dashboard() {
           </motion.div>
         </motion.div>
 
-        {/* Animated Stats Grid - SpaceX Mission Stats Style */}
+        {/* Animated Stats Grid - Pure Glass Cards */}
         <motion.div 
           style={{ y: statsY }}
-          className="grid gap-6 md:grid-cols-3"
+          className="grid gap-5 md:grid-cols-4"
         >
+          {/* Total Patients Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.15 }}
+            whileHover={{ y: -4, transition: { duration: 0.2 } }}
+            className="cursor-pointer"
+            onClick={() => navigate("/patients")}
+          >
+            <Card variant="glass" hover="bright" className="h-full">
+              {/* Top shine */}
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent rounded-t-2xl" />
+              <CardHeader className="relative pb-2">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                    <Users className="h-6 w-6 text-cyan-500 dark:text-cyan-400" />
+                  </div>
+                  <div className="w-2 h-2 rounded-full bg-cyan-500 dark:bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.6)]" />
+                </div>
+                <CardTitle className="text-4xl font-bold text-slate-800 dark:text-white/90">
+                  {stats.totalPatients}
+                </CardTitle>
+                <CardDescription className="text-slate-500 dark:text-white/50 font-medium">Total Patients</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/40">
+                  <TrendingUp className="h-3.5 w-3.5 text-cyan-500 dark:text-cyan-400" />
+                  <span>Click to view all</span>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Total Reports Card */}
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            whileHover={{ y: -8, transition: { duration: 0.2 } }}
-            className="relative group"
+            whileHover={{ y: -4, transition: { duration: 0.2 } }}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-transparent rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300" />
-            <Card className="relative backdrop-blur-xl bg-card/40 border-primary/20 shadow-2xl hover:shadow-primary/20 transition-all duration-300 overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
-              <CardHeader className="relative">
-                <div className="flex items-center justify-between">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 group-hover:scale-110 transition-transform duration-300">
-                    <FileText className="h-8 w-8 text-primary" />
+            <Card variant="glass" hover="bright" className="h-full">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky-400/30 to-transparent rounded-t-2xl" />
+              <CardHeader className="relative pb-2">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20">
+                    <FileText className="h-6 w-6 text-sky-500 dark:text-sky-400" />
                   </div>
-                  <motion.div
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                    className="w-12 h-12 rounded-full border-4 border-dashed border-primary/20"
-                  />
+                  <div className="w-2 h-2 rounded-full bg-sky-500 dark:bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.6)]" />
                 </div>
-                <CardTitle className="text-4xl font-bold mt-4 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
+                <CardTitle className="text-4xl font-bold text-slate-800 dark:text-white/90">
                   {stats.total}
                 </CardTitle>
-                <CardDescription className="text-base font-medium">Total Reports Analyzed</CardDescription>
+                <CardDescription className="text-slate-500 dark:text-white/50 font-medium">Total Reports</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-2 text-sm">
-                  <TrendingUp className="h-4 w-4 text-green-500" />
-                  <span className="text-muted-foreground">Mission active</span>
+                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/40">
+                  <Activity className="h-3.5 w-3.5 text-sky-500 dark:text-sky-400" />
+                  <span>All time analyzed</span>
                 </div>
               </CardContent>
             </Card>
           </motion.div>
 
+          {/* Completed Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.25 }}
+            whileHover={{ y: -4, transition: { duration: 0.2 } }}
+          >
+            <Card variant="glass" hover="bright" className="h-full">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-400/30 to-transparent rounded-t-2xl" />
+              <CardHeader className="relative pb-2">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                    <CheckCircle className="h-6 w-6 text-emerald-500 dark:text-emerald-400" />
+                  </div>
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                </div>
+                <CardTitle className="text-4xl font-bold text-slate-800 dark:text-white/90">
+                  {stats.completed}
+                </CardTitle>
+                <CardDescription className="text-slate-500 dark:text-white/50 font-medium">Summaries Complete</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/40">
+                  <Zap className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
+                  <span>Ready for review</span>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* Processing Card */}
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            whileHover={{ y: -8, transition: { duration: 0.2 } }}
-            className="relative group"
+            whileHover={{ y: -4, transition: { duration: 0.2 } }}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-transparent rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300" />
-            <Card className="relative backdrop-blur-xl bg-card/40 border-green-500/20 shadow-2xl hover:shadow-green-500/20 transition-all duration-300 overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-green-500/10 rounded-full blur-3xl" />
-              <CardHeader className="relative">
-                <div className="flex items-center justify-between">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-green-500/20 to-green-500/5 group-hover:scale-110 transition-transform duration-300">
-                    <CheckCircle className="h-8 w-8 text-green-500" />
-                  </div>
-                  <div className="flex gap-1">
-                    {[...Array(3)].map((_, i) => (
-                      <motion.div
-                        key={i}
-                        animate={{ 
-                          scale: [1, 1.2, 1],
-                          opacity: [0.3, 1, 0.3]
-                        }}
-                        transition={{ 
-                          duration: 1.5, 
-                          repeat: Infinity, 
-                          delay: i * 0.2 
-                        }}
-                        className="w-2 h-2 rounded-full bg-green-500"
-                      />
-                    ))}
-                  </div>
-                </div>
-                <CardTitle className="text-4xl font-bold mt-4 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
-                  {stats.completed}
-                </CardTitle>
-                <CardDescription className="text-base font-medium">Summaries Complete</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2 text-sm">
-                  <Zap className="h-4 w-4 text-green-500" />
-                  <span className="text-muted-foreground">Ready for review</span>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-            whileHover={{ y: -8, transition: { duration: 0.2 } }}
-            className="relative group"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-accent/20 to-transparent rounded-2xl blur-xl group-hover:blur-2xl transition-all duration-300" />
-            <Card className="relative backdrop-blur-xl bg-card/40 border-accent/20 shadow-2xl hover:shadow-accent/20 transition-all duration-300 overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-accent/10 rounded-full blur-3xl" />
-              <CardHeader className="relative">
-                <div className="flex items-center justify-between">
-                  <div className="p-3 rounded-xl bg-gradient-to-br from-accent/20 to-accent/5 group-hover:scale-110 transition-transform duration-300">
-                    <Brain className="h-8 w-8 text-accent animate-pulse" />
+            <Card variant="glass" hover="bright" className="h-full">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/30 to-transparent rounded-t-2xl" />
+              <CardHeader className="relative pb-2">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 rounded-xl bg-violet-500/10 border border-violet-500/20">
+                    <Brain className="h-6 w-6 text-violet-500 dark:text-violet-400" />
                   </div>
                   <motion.div
-                    animate={{ rotate: [0, 360] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                  >
-                    <Activity className="h-6 w-6 text-accent" />
-                  </motion.div>
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="w-2 h-2 rounded-full bg-violet-500 dark:bg-violet-400 shadow-[0_0_8px_rgba(167,139,250,0.6)]"
+                  />
                 </div>
-                <CardTitle className="text-4xl font-bold mt-4 bg-gradient-to-br from-foreground to-foreground/70 bg-clip-text text-transparent">
+                <CardTitle className="text-4xl font-bold text-slate-800 dark:text-white/90">
                   {stats.processing}
                 </CardTitle>
-                <CardDescription className="text-base font-medium">AI Processing</CardDescription>
+                <CardDescription className="text-slate-500 dark:text-white/50 font-medium">AI Processing</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center gap-2 text-sm">
-                  <Clock className="h-4 w-4 text-accent animate-spin" style={{ animationDuration: '3s' }} />
-                  <span className="text-muted-foreground">Analysis in progress</span>
+                <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-white/40">
+                  <Clock className="h-3.5 w-3.5 text-violet-500 dark:text-violet-400 animate-spin" style={{ animationDuration: '3s' }} />
+                  <span>Analysis in progress</span>
                 </div>
               </CardContent>
             </Card>
           </motion.div>
         </motion.div>
 
-        {/* Recent Reports - Interactive List */}
+        {/* Recent Reports - Glass Card */}
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.6 }}
-          className="relative"
         >
-          <Card className="backdrop-blur-xl bg-card/40 border-primary/10 shadow-2xl overflow-hidden">
-            {/* Animated Border */}
-            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 animate-gradient-x" style={{ padding: '1px' }}>
-              <div className="w-full h-full rounded-xl bg-card" />
-            </div>
+          <Card variant="glass" className="overflow-hidden">
+            {/* Top shine */}
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 dark:via-white/20 to-transparent rounded-t-2xl" />
             
             <CardHeader className="relative">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
                   <div className="flex items-center gap-3">
-                    <motion.div
-                      animate={{ 
-                        boxShadow: [
-                          '0 0 0 0 rgba(var(--primary), 0.7)',
-                          '0 0 0 10px rgba(var(--primary), 0)',
-                          '0 0 0 0 rgba(var(--primary), 0)'
-                        ]
-                      }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className="w-3 h-3 rounded-full bg-primary"
-                    />
-                    <CardTitle className="text-2xl">Recent Reports</CardTitle>
+                    <div className="w-2 h-2 rounded-full bg-sky-500 dark:bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.6)]" />
+                    <CardTitle className="text-xl text-slate-800 dark:text-white/90">Recent Reports</CardTitle>
                   </div>
-                  <CardDescription className="text-base">
+                  <CardDescription className="text-slate-500 dark:text-white/50">
                     Latest diagnostic reports and analysis status
                   </CardDescription>
                 </div>
-                <motion.div 
-                  whileHover={{ scale: 1.05, rotate: 5 }}
-                  whileTap={{ scale: 0.95 }}
+                <Button 
+                  variant="glass"
+                  onClick={() => navigate("/history")}
+                  className="gap-2"
                 >
-                  <Button 
-                    variant="outline" 
-                    onClick={() => navigate("/history")}
-                    className="gap-2 border-2 hover:bg-primary/10"
-                  >
-                    <BarChart3 className="h-4 w-4" />
-                    View All Reports
-                  </Button>
-                </motion.div>
+                  <BarChart3 className="h-4 w-4" />
+                  View All
+                </Button>
               </div>
             </CardHeader>
             
@@ -413,145 +412,94 @@ export default function Dashboard() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    className="space-y-4"
+                    className="space-y-3"
                   >
                     {reports.map((report, index) => (
                       <motion.div
                         key={report.id}
-                        initial={{ opacity: 0, x: -50 }}
+                        initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ 
-                          duration: 0.5, 
-                          delay: index * 0.1,
-                          type: "spring",
-                          stiffness: 100
-                        }}
-                        whileHover={{ 
-                          scale: 1.02,
-                          x: 8,
-                          transition: { duration: 0.2 }
-                        }}
-                        onHoverStart={() => setHoveredCard(report.id)}
-                        onHoverEnd={() => setHoveredCard(null)}
+                        transition={{ duration: 0.4, delay: index * 0.08 }}
+                        whileHover={{ x: 4, transition: { duration: 0.2 } }}
                         className="relative group"
                       >
-                        {/* Hover Glow Effect */}
-                        <motion.div
-                          className="absolute inset-0 bg-gradient-to-r from-primary/20 to-accent/20 rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                          animate={hoveredCard === report.id ? { scale: [1, 1.1, 1] } : {}}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        />
-                        
                         <div
-                          className="relative flex items-center justify-between p-6 rounded-xl border-2 border-border/50 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm hover:border-primary/50 transition-all duration-300 cursor-pointer overflow-hidden"
+                          className="relative flex items-center justify-between p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/[0.05] dark:border-white/[0.08] hover:bg-black/[0.04] dark:hover:bg-white/[0.08] hover:border-black/[0.08] dark:hover:border-white/[0.15] transition-all duration-200 cursor-pointer"
                           onClick={() => report.status === "completed" && navigate(`/summary/${report.id}`)}
                         >
-                          {/* Status Indicator Line */}
-                          <div className={`absolute left-0 top-0 bottom-0 w-1 ${
-                            report.status === 'completed' ? 'bg-green-500' :
-                            report.status === 'processing' ? 'bg-accent animate-pulse' :
-                            'bg-primary/50'
-                          }`} />
-
-                          <div className="flex items-center gap-6 flex-1">
-                            {/* Animated Icon */}
-                            <motion.div 
-                              className="relative"
-                              whileHover={{ rotate: 360 }}
-                              transition={{ duration: 0.6 }}
-                            >
-                              <div className="p-4 rounded-2xl bg-gradient-to-br from-primary/20 via-accent/10 to-primary/5 relative overflow-hidden">
-                                {report.status === 'processing' && (
-                                  <motion.div
-                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                                    animate={{ x: [-100, 100] }}
-                                    transition={{ duration: 1.5, repeat: Infinity }}
-                                  />
-                                )}
-                                <FileText className="h-7 w-7 text-primary relative z-10" />
+                          <div className="flex items-center gap-4 flex-1">
+                            {/* Icon with status */}
+                            <div className="relative">
+                              <div className={`p-3 rounded-xl ${
+                                report.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 dark:text-emerald-400' :
+                                report.status === 'processing' ? 'bg-violet-500/10 text-violet-500 dark:text-violet-400' :
+                                'bg-sky-500/10 text-sky-500 dark:text-sky-400'
+                              }`}>
+                                <FileText className="h-5 w-5" />
                               </div>
                               {report.status === 'completed' && (
-                                <motion.div
-                                  initial={{ scale: 0 }}
-                                  animate={{ scale: 1 }}
-                                  className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center"
-                                >
-                                  <CheckCircle className="w-3 h-3 text-white" />
-                                </motion.div>
+                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(52,211,153,0.5)]">
+                                  <CheckCircle className="w-2.5 h-2.5 text-white" />
+                                </div>
                               )}
-                            </motion.div>
+                            </div>
 
                             {/* Report Info */}
-                            <div className="flex-1 space-y-2">
-                              <h3 className="font-bold text-lg group-hover:text-primary transition-colors">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-medium text-slate-700 dark:text-white/90 truncate group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
                                 {report.patient_name}
                               </h3>
-                              <div className="flex items-center gap-3 flex-wrap">
-                                <Badge 
-                                  variant={
-                                    report.status === 'completed' ? 'default' :
-                                    report.status === 'processing' ? 'secondary' :
-                                    'outline'
-                                  }
-                                  className="capitalize"
-                                >
-                                  {report.status === 'processing' && (
-                                    <motion.span
-                                      animate={{ rotate: 360 }}
-                                      transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                                      className="inline-block mr-1"
-                                    >
-                                      ⚡
-                                    </motion.span>
-                                  )}
-                                  {report.status}
-                                </Badge>
-                                <span className="text-sm text-muted-foreground font-medium px-3 py-1 rounded-full bg-primary/5">
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-black/[0.03] dark:bg-white/[0.06] text-slate-500 dark:text-white/50 font-medium">
                                   {report.report_type.replace("_", " ").toUpperCase()}
                                 </span>
-                                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                <span className="text-xs text-slate-400 dark:text-white/30 flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
                                   {new Date(report.uploaded_at).toLocaleDateString('en-US', { 
                                     month: 'short', 
-                                    day: 'numeric',
-                                    year: 'numeric'
+                                    day: 'numeric'
                                   })}
                                 </span>
                               </div>
                             </div>
                           </div>
 
-                          {/* Action Button */}
-                          {report.status === "completed" && (
-                            <motion.div
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              whileHover={{ x: 5 }}
-                            >
+                          {/* Status/Action */}
+                          <div className="flex items-center gap-3">
+                            {report.status === "completed" && (
                               <Button 
-                                variant="ghost" 
-                                size="lg"
-                                className="gap-2 group/btn"
+                                variant="glass"
+                                size="sm"
+                                className="gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
                               >
-                                <Eye className="h-5 w-5 group-hover/btn:text-primary transition-colors" />
-                                <span className="font-semibold">View Report</span>
-                                <ArrowRight className="h-5 w-5 group-hover/btn:translate-x-1 transition-transform" />
+                                <Eye className="h-3.5 w-3.5" />
+                                View
                               </Button>
-                            </motion.div>
-                          )}
-                          
-                          {report.status === "processing" && (
-                            <motion.div
-                              animate={{ 
-                                opacity: [0.5, 1, 0.5],
-                              }}
-                              transition={{ duration: 2, repeat: Infinity }}
-                              className="flex items-center gap-2 text-accent font-medium"
+                            )}
+                            
+                            {report.status === "processing" && (
+                              <div className="flex items-center gap-2 text-xs text-violet-400">
+                                <motion.div
+                                  animate={{ rotate: 360 }}
+                                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                                >
+                                  <Brain className="h-4 w-4" />
+                                </motion.div>
+                                <span>Analyzing...</span>
+                              </div>
+                            )}
+                            
+                            <Badge 
+                              variant={
+                                report.status === 'completed' ? 'glassSuccess' :
+                                report.status === 'processing' ? 'glassPrimary' :
+                                'glass'
+                              }
+                              className="capitalize text-[10px]"
                             >
-                              <Brain className="h-5 w-5 animate-pulse" />
-                              <span>Analyzing...</span>
-                            </motion.div>
-                          )}
+                              {report.status}
+                            </Badge>
+                          </div>
                         </div>
                       </motion.div>
                     ))}

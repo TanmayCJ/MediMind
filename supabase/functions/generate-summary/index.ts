@@ -201,6 +201,133 @@ function parseGeminiResponse(text: string): any {
   }
 }
 
+// Function to parse patient-friendly summary from AI response
+function parsePatientSummary(text: string): any {
+  try {
+    // Try to parse JSON if the response is JSON-formatted
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[1]);
+    }
+    
+    // Try direct JSON parse
+    if (text.trim().startsWith('{')) {
+      return JSON.parse(text);
+    }
+    
+    // Fallback: Create basic structure from text
+    const findings: any[] = [];
+    const questionsMatch = text.match(/questions.*?doctor:?\s*([\s\S]*?)(?=lifestyle|tips|$)/i);
+    const tipsMatch = text.match(/(?:lifestyle|tips|healthy):?\s*([\s\S]*?)(?=follow|urgency|$)/i);
+    
+    // Extract findings from numbered sections
+    const findingMatches = Array.from(text.matchAll(/(?:finding\s*\d+|result\s*\d+):?\s*([^\n]+)/gi));
+    findingMatches.forEach((match, idx) => {
+      findings.push({
+        title: `Finding ${idx + 1}`,
+        status: 'needs_attention',
+        emoji: '📋',
+        simple_explanation: match[1].trim(),
+        what_it_means: 'Please discuss with your healthcare provider.',
+        action_items: []
+      });
+    });
+    
+    return {
+      overview: text.substring(0, 300),
+      findings: findings.length > 0 ? findings : [{
+        title: 'Health Analysis',
+        status: 'needs_attention',
+        emoji: '📋',
+        simple_explanation: 'Your medical report has been analyzed.',
+        what_it_means: 'Please review the details with your healthcare provider.',
+        action_items: ['Schedule a follow-up appointment']
+      }],
+      questions_for_doctor: ['What do these results mean for my health?', 'Are there any lifestyle changes I should make?'],
+      lifestyle_tips: ['Stay hydrated', 'Get regular exercise', 'Maintain a balanced diet'],
+      follow_up_needed: true,
+      urgency_level: 'moderate'
+    };
+  } catch (error) {
+    console.error('Error parsing patient summary:', error);
+    return {
+      overview: 'Your medical report has been analyzed by our AI assistant.',
+      findings: [{
+        title: 'Analysis Complete',
+        status: 'needs_attention',
+        emoji: '📋',
+        simple_explanation: 'Your results have been reviewed.',
+        what_it_means: 'Please discuss these findings with your doctor.',
+        action_items: ['Review with healthcare provider']
+      }],
+      questions_for_doctor: ['What do these results mean?'],
+      lifestyle_tips: ['Maintain a healthy lifestyle'],
+      follow_up_needed: true,
+      urgency_level: 'moderate'
+    };
+  }
+}
+
+// Function to parse doctor-focused summary from AI response
+function parseDoctorSummary(text: string): any {
+  try {
+    // Try to parse JSON if the response is JSON-formatted
+    const jsonMatch = text.match(/```json\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[1]);
+    }
+    
+    // Try direct JSON parse
+    if (text.trim().startsWith('{')) {
+      return JSON.parse(text);
+    }
+    
+    // Fallback: Create structure from text
+    const redFlags: any[] = [];
+    const prescribingConsiderations: any[] = [];
+    const keyFindings: any[] = [];
+    
+    // Extract clinical impression
+    const impressionMatch = text.match(/(?:clinical impression|impression|assessment):?\s*([^\n]+)/i);
+    
+    // Extract red flags
+    const redFlagMatches = Array.from(text.matchAll(/(?:red flag|urgent|critical):?\s*([^\n]+)/gi));
+    redFlagMatches.forEach(match => {
+      redFlags.push({
+        flag: match[1].trim(),
+        urgency: 'high',
+        recommended_action: 'Immediate clinical review',
+        rationale: 'Identified as clinically significant'
+      });
+    });
+    
+    return {
+      clinical_impression: impressionMatch ? impressionMatch[1].trim() : 'Clinical analysis completed.',
+      key_findings: keyFindings,
+      red_flags: redFlags,
+      prescribing_considerations: prescribingConsiderations,
+      drug_interactions: [],
+      differential_diagnosis: [],
+      recommended_tests: [],
+      follow_up_interval: 'Per clinical judgment',
+      specialist_referrals: []
+    };
+  } catch (error) {
+    console.error('Error parsing doctor summary:', error);
+    return {
+      clinical_impression: 'Medical report analyzed.',
+      key_findings: [],
+      red_flags: [],
+      prescribing_considerations: [],
+      drug_interactions: [],
+      differential_diagnosis: [],
+      recommended_tests: [],
+      follow_up_interval: 'Per clinical judgment',
+      specialist_referrals: []
+    };
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -444,6 +571,153 @@ Remember: Be specific, professional, and clinically accurate. Each statement sho
     // Gemini will return formatted text, so we'll parse it
     const analysisData = parseGeminiResponse(generatedText);
 
+    // =====================================================
+    // GENERATE PATIENT-FRIENDLY SUMMARY (B2C View)
+    // =====================================================
+    console.log('🏥 Generating patient-friendly summary...');
+    
+    const patientPrompt = `Based on this medical analysis, create a PATIENT-FRIENDLY summary in JSON format.
+
+ORIGINAL ANALYSIS:
+${generatedText}
+
+Create a JSON object with this EXACT structure (respond with ONLY the JSON, no other text):
+{
+  "overview": "A warm, reassuring 2-3 sentence overview of what the results mean in simple terms",
+  "findings": [
+    {
+      "title": "Short friendly title (e.g., 'Your Heart Health')",
+      "status": "good OR needs_attention OR urgent",
+      "emoji": "Appropriate emoji (✅ for good, ⚠️ for needs_attention, 🚨 for urgent)",
+      "simple_explanation": "One sentence explanation a non-medical person can understand",
+      "what_it_means": "What this finding means for the patient's daily life",
+      "action_items": ["Simple action 1", "Simple action 2"]
+    }
+  ],
+  "questions_for_doctor": ["Question 1 to ask doctor", "Question 2", "Question 3"],
+  "lifestyle_tips": ["Healthy tip 1", "Tip 2", "Tip 3", "Tip 4"],
+  "follow_up_needed": true or false,
+  "urgency_level": "low OR moderate OR high"
+}
+
+IMPORTANT RULES:
+- Use simple, everyday language (6th-grade reading level)
+- Be warm and reassuring, not alarming
+- Explain medical terms if you must use them
+- Focus on what the patient can DO about their health
+- Include emojis to make it friendly and approachable
+- 3-5 findings maximum
+- Each finding should have clear action items`;
+
+    let patientSummary = null;
+    try {
+      const patientResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: patientPrompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 4096,
+          },
+        }),
+      });
+
+      if (patientResponse.ok) {
+        const patientData = await patientResponse.json();
+        const patientText = patientData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        patientSummary = parsePatientSummary(patientText);
+        console.log('✅ Patient summary generated successfully');
+      }
+    } catch (error) {
+      console.error('⚠️ Patient summary generation failed:', error);
+    }
+
+    // =====================================================
+    // GENERATE DOCTOR/CLINICAL SUMMARY (B2B View)
+    // =====================================================
+    console.log('👨‍⚕️ Generating clinical professional summary...');
+    
+    const doctorPrompt = `Based on this medical analysis, create a CLINICAL PROFESSIONAL summary in JSON format.
+
+ORIGINAL ANALYSIS:
+${generatedText}
+
+Create a JSON object with this EXACT structure (respond with ONLY the JSON, no other text):
+{
+  "clinical_impression": "Comprehensive clinical impression in professional medical terminology",
+  "key_findings": [
+    {
+      "finding": "Specific clinical finding with values",
+      "clinical_significance": "What this finding indicates clinically",
+      "reference_range": "Normal range if applicable",
+      "icd10_code": "Relevant ICD-10 code if applicable",
+      "snomed_code": "Relevant SNOMED code if applicable"
+    }
+  ],
+  "red_flags": [
+    {
+      "flag": "Urgent finding requiring attention",
+      "urgency": "low OR moderate OR high OR critical",
+      "recommended_action": "Specific clinical action needed",
+      "rationale": "Clinical rationale for urgency"
+    }
+  ],
+  "prescribing_considerations": [
+    {
+      "medication_class": "Drug class to consider",
+      "recommendation": "Specific prescribing recommendation",
+      "rationale": "Evidence-based rationale",
+      "contraindications": ["Contraindication 1", "Contraindication 2"],
+      "monitoring": ["What to monitor"]
+    }
+  ],
+  "drug_interactions": [
+    {
+      "interaction": "Drug-drug or drug-condition interaction",
+      "severity": "mild OR moderate OR severe",
+      "recommendation": "How to manage"
+    }
+  ],
+  "differential_diagnosis": ["Diagnosis 1", "Diagnosis 2"],
+  "recommended_tests": ["Test 1", "Test 2"],
+  "follow_up_interval": "Recommended follow-up timeframe",
+  "specialist_referrals": ["Specialty 1", "Specialty 2"]
+}
+
+IMPORTANT RULES:
+- Use proper medical terminology
+- Include relevant diagnostic codes (ICD-10, SNOMED) where applicable
+- Be specific about red flags and their urgency levels
+- Include evidence-based prescribing considerations
+- Note any potential drug interactions based on common medications
+- Provide differential diagnoses ranked by likelihood
+- Be clinically precise and actionable`;
+
+    let doctorSummary = null;
+    try {
+      const doctorResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: doctorPrompt }] }],
+          generationConfig: {
+            temperature: 0.5, // Lower temperature for more precise clinical output
+            maxOutputTokens: 4096,
+          },
+        }),
+      });
+
+      if (doctorResponse.ok) {
+        const doctorData = await doctorResponse.json();
+        const doctorText = doctorData.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        doctorSummary = parseDoctorSummary(doctorText);
+        console.log('✅ Doctor summary generated successfully');
+      }
+    } catch (error) {
+      console.error('⚠️ Doctor summary generation failed:', error);
+    }
+
     // Prepare source citations
     const allSources = [
       {
@@ -457,7 +731,7 @@ Remember: Be specific, professional, and clinically accurate. Each statement sho
       ...ragSources
     ];
 
-    // Store summary in database with sources
+    // Store summary in database with sources and dual-view summaries
     const { error: summaryError } = await supabaseClient
       .from('summaries')
       .upsert({
@@ -468,6 +742,9 @@ Remember: Be specific, professional, and clinically accurate. Each statement sho
         full_summary: analysisData.full_summary,
         sources: allSources,
         rag_context_used: ragSources.map((s: any) => s.report_id),
+        patient_summary: patientSummary,
+        doctor_summary: doctorSummary,
+        view_generated_at: new Date().toISOString(),
       });
 
     if (summaryError) {
@@ -487,7 +764,15 @@ Remember: Be specific, professional, and clinically accurate. Each statement sho
     console.log('Summary generated successfully for report:', reportId);
 
     return new Response(
-      JSON.stringify({ success: true, summary: analysisData }),
+      JSON.stringify({ 
+        success: true, 
+        summary: {
+          ...analysisData,
+          patient_summary: patientSummary,
+          doctor_summary: doctorSummary,
+          view_generated_at: new Date().toISOString(),
+        }
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
